@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physics Anti-Gravity Interactive Navigation Prototype</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Matter.js Physics Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f0f4f9;
+      --bg-gradient: radial-gradient(circle at 50% 30%, #ffffff 0%, #e2e8f0 100%);
+      --text-color: #0f172a;
+      --text-muted: #64748b;
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.8);
+      --glass-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      --accent-active: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.35);
+      --card-bg: rgba(255, 255, 255, 0.65);
+      --toggle-bg: #cbd5e1;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #090d16;
+      --bg-gradient: radial-gradient(circle at 50% 30%, #1e293b 0%, #090d16 100%);
+      --text-color: #f8fafc;
+      --text-muted: #94a3b8;
+      --glass-bg: rgba(30, 41, 59, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      --accent-active: #60a5fa;
+      --accent-glow: rgba(96, 165, 250, 0.4);
+      --card-bg: rgba(30, 41, 59, 0.6);
+      --toggle-bg: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-color);
+      transition: background 0.4s ease, color 0.4s ease;
+    }
+
+    /* Background Gradient Mesh */
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-gradient);
+      z-index: 1;
+      transition: background 0.4s ease;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Floating Header Text Overlay */
+    .app-header {
+      position: absolute;
+      top: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .app-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-color);
+      letter-spacing: -0.02em;
+    }
+
+    .app-header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Tab Content View Overlay Container */
+    .tab-views-container {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .tab-view {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab-view.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Glass Info Card for Tabs 1-3 */
+    .info-card {
+      pointer-events: auto;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      border-radius: 24px;
+      padding: 28px 36px;
+      text-align: center;
+      max-width: 380px;
+      transform: translateY(-20px);
+    }
+
+    .info-card h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      color: var(--text-color);
+      margin-bottom: 8px;
+    }
+
+    .info-card p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Tab 4: Clean Empty Workspace with Bottom-Right Dark Mode Switch */
+    .dark-mode-container {
+      position: absolute;
+      bottom: 36px;
+      right: 36px;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      padding: 10px 18px;
+      border-radius: 30px;
+      z-index: 20;
+    }
+
+    .dark-mode-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Switch Toggle */
+    .toggle-switch {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      background: var(--toggle-bg);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    input:checked + .slider {
+      transform: translateX(20px);
+      background: #38bdf8;
+    }
+
+    /* Instructions Overlay */
+    .hint-bar {
+      position: absolute;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      z-index: 10;
+      pointer-events: none;
+      box-shadow: var(--glass-shadow);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas Container for Matter.js -->
+  <div id="canvas-container"></div>
+
+  <!-- App Title Overlay -->
+  <div class="app-header">
+    <h1>Anti-Gravity Physics UI</h1>
+    <p>Drag, fling & interact with physics tabs & pagination</p>
+  </div>
+
+  <div class="hint-bar">Click/Drag any physics icon or dot • Click tabs to switch active index</div>
+
+  <!-- Tab Views -->
+  <div class="tab-views-container">
+    <!-- Tab 0: Home -->
+    <div class="tab-view active" id="tab-view-0">
+      <div class="info-card">
+        <h2>Home Workspace</h2>
+        <p>Interactive floating physics bodies in low gravity. Try tossing the icons or pagination dots!</p>
+      </div>
+    </div>
+
+    <!-- Tab 1: Analytics -->
+    <div class="tab-view" id="tab-view-1">
+      <div class="info-card">
+        <h2>Analytics Overview</h2>
+        <p>Dynamic anti-gravity environment. The pagination dots automatically track active index changes.</p>
+      </div>
+    </div>
+
+    <!-- Tab 2: Wallet / Scanner -->
+    <div class="tab-view" id="tab-view-2">
+      <div class="info-card">
+        <h2>Wallet & Transactions</h2>
+        <p>Seamless 2D physics interaction. Swipe or tap any tab icon body to navigate.</p>
+      </div>
+    </div>
+
+    <!-- Tab 3 (Profile): Empty Workspace + Dark Mode Toggle -->
+    <div class="tab-view" id="tab-view-3">
+      <!-- Empty space as requested for Profile Tab -->
+      <div class="dark-mode-container">
+        <span class="dark-mode-label">
+          <i data-lucide="moon" style="width:16px; height:16px;"></i> Dark Theme
+        </span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="themeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Matter.js Engine Setup ---
+    const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint, Events, Body } = Matter;
+
+    const container = document.getElementById('canvas-container');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    // Create Engine with low buoyancy gravity
+    const engine = Engine.create({
+      gravity: { x: 0, y: 0.05 } // Low floating gravity
+    });
+
+    // Create Renderer
+    const render = Render.create({
+      element: container,
+      engine: engine,
+      options: {
+        width: width,
+        height: height,
+        wireframes: false,
+        background: 'transparent'
+      }
+    });
+
+    Render.run(render);
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    // Dynamic Theme Color Tracking
+    let isDarkMode = false;
+    const themeColors = {
+      light: {
+        bodyBg: 'rgba(255, 255, 255, 0.85)',
+        bodyBorder: 'rgba(255, 255, 255, 0.95)',
+        iconActive: '#3b82f6',
+        iconInactive: '#475569',
+        activeGlow: 'rgba(59, 130, 246, 0.4)',
+        dotActive: '#3b82f6',
+        dotInactive: '#cbd5e1'
+      },
+      dark: {
+        bodyBg: 'rgba(30, 41, 59, 0.85)',
+        bodyBorder: 'rgba(255, 255, 255, 0.15)',
+        iconActive: '#60a5fa',
+        iconInactive: '#94a3b8',
+        activeGlow: 'rgba(96, 165, 250, 0.5)',
+        dotActive: '#60a5fa',
+        dotInactive: '#334155'
+      }
+    };
+
+    function getColors() {
+      return isDarkMode ? themeColors.dark : themeColors.light;
+    }
+
+    // --- Boundary Walls ---
+    let wallOptions = { isStatic: true, render: { visible: false } };
+    let ground = Bodies.rectangle(width / 2, height + 30, width * 2, 60, wallOptions);
+    let leftWall = Bodies.rectangle(-30, height / 2, 60, height * 2, wallOptions);
+    let rightWall = Bodies.rectangle(width + 30, height / 2, 60, height * 2, wallOptions);
+    let ceiling = Bodies.rectangle(width / 2, -30, width * 2, 60, wallOptions);
+    Composite.add(engine.world, [ground, leftWall, rightWall, ceiling]);
+
+    // Current Active Tab State (0 to 3)
+    let activeTabIndex = 0;
+
+    // Tab Icon Definitions
+    const tabIconsConfig = [
+      { name: 'Home', icon: 'house' },
+      { name: 'Analytics', icon: 'chart-pie' },
+      { name: 'Wallet', icon: 'wallet' },
+      { name: 'Profile', icon: 'user' }
+    ];
+
+    // Array holding physics bodies
+    const tabBodies = [];
+    const dotBodies = [];
+
+    // Base positions calculation
+    const centerX = width / 2;
+    const tabDockY = height - 120;
+    const dotsY = height - 48;
+    const tabSpacing = 74;
+
+    // --- Create 4 Navigation Tab Physics Bodies ---
+    tabIconsConfig.forEach((config, idx) => {
+      const x = centerX + (idx - 1.5) * tabSpacing;
+      const y = tabDockY + (Math.random() * 20 - 10);
+
+      const body = Bodies.circle(x, y, 28, {
+        restitution: 0.8, // Springy bounce
+        frictionAir: 0.02,
+        density: 0.001,
+        render: { visible: false } // Custom rendered on canvas overlay
+      });
+
+      body.tabIndex = idx;
+      body.tabName = config.name;
+      body.tabIcon = config.icon;
+      body.homePos = { x, y: tabDockY };
+
+      // Soft anchor spring keeping icons in general dock area while allowing free physics displacement
+      const constraint = Constraint.create({
+        pointA: { x, y: tabDockY },
+        bodyB: body,
+        stiffness: 0.015,
+        damping: 0.05,
+        render: { visible: false }
+      });
+
+      tabBodies.push(body);
+      Composite.add(engine.world, [body, constraint]);
+    });
+
+    // --- Create 4 Interactive Pagination Dot Physics Bodies ---
+    const dotSpacing = 24;
+    for (let i = 0; i < 4; i++) {
+      const x = centerX + (i - 1.5) * dotSpacing;
+      const y = dotsY;
+
+      // Active dot is wider capsule radius, inactive are small circles
+      const radius = i === activeTabIndex ? 9 : 6;
+      const dotBody = Bodies.circle(x, y, radius, {
+        restitution: 0.85,
+        frictionAir: 0.015,
+        density: 0.0008,
+        render: { visible: false }
+      });
+
+      dotBody.dotIndex = i;
+      dotBody.homePos = { x, y: dotsY };
+
+      const constraint = Constraint.create({
+        pointA: { x, y: dotsY },
+        bodyB: dotBody,
+        stiffness: 0.04,
+        damping: 0.06,
+        render: { visible: false }
+      });
+
+      dotBodies.push(dotBody);
+      Composite.add(engine.world, [dotBody, constraint]);
+    }
+
+    // --- Mouse & Drag Interaction ---
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse: mouse,
+      constraint: {
+        stiffness: 0.2,
+        render: { visible: false }
+      }
+    });
+
+    Composite.add(engine.world, mouseConstraint);
+    render.mouse = mouse;
+
+    // Track click vs drag to switch tabs on tap
+    let mouseDownPos = null;
+    Events.on(mouseConstraint, 'mousedown', (evt) => {
+      mouseDownPos = { x: evt.mouse.position.x, y: evt.mouse.position.y };
+    });
+
+    Events.on(mouseConstraint, 'mouseup', (evt) => {
+      if (!mouseDownPos) return;
+      const mouseUpPos = evt.mouse.position;
+      const dist = Math.hypot(mouseUpPos.x - mouseDownPos.x, mouseUpPos.y - mouseDownPos.y);
+
+      // If clicked with minimal drag movement (< 6px), switch tab
+      if (dist < 6) {
+        const clickedBody = mouseConstraint.body;
+        if (clickedBody) {
+          if (clickedBody.tabIndex !== undefined) {
+            setActiveTab(clickedBody.tabIndex);
+          } else if (clickedBody.dotIndex !== undefined) {
+            setActiveTab(clickedBody.dotIndex);
+          }
+        }
+      }
+      mouseDownPos = null;
+    });
+
+    // --- Update Active Tab Function ---
+    function setActiveTab(index) {
+      if (index === activeTabIndex) return;
+      activeTabIndex = index;
+
+      // Update Tab View Overlays
+      document.querySelectorAll('.tab-view').forEach((view, idx) => {
+        if (idx === activeTabIndex) {
+          view.classList.add('active');
+        } else {
+          view.classList.remove('active');
+        }
+      });
+
+      // Apply a subtle impulse to pagination dots when switching active tab
+      dotBodies.forEach((dot, idx) => {
+        const forceY = (idx === activeTabIndex) ? -0.003 : 0.001;
+        Body.applyForce(dot, dot.position, { x: (Math.random() - 0.5) * 0.001, y: forceY });
+      });
+    }
+
+    // --- Custom Canvas Rendering for Physics Bodies & Lucide Icon Overlays ---
+    // Pre-create Offscreen SVGs for Lucide Icons
+    const iconSvgs = {};
+    tabIconsConfig.forEach(config => {
+      const svgStr = lucide.icons[config.icon] ? lucide.icons[config.icon].toSvg({
+        width: 24,
+        height: 24,
+        stroke: '#475569',
+        'stroke-width': 2.2
+      }) : '';
+      
+      const img = new Image();
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+      iconSvgs[config.icon] = img;
+    });
+
+    // Render loop overlay
+    Events.on(render, 'afterRender', () => {
+      const ctx = render.context;
+      const colors = getColors();
+
+      // 1. Draw Dock Floating Capsule Background Halo
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(centerX - 170, tabDockY - 38, 340, 76, 38);
+      ctx.fillStyle = colors.bodyBg;
+      ctx.strokeStyle = colors.bodyBorder;
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 16;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Render Tab Icon Physics Bodies
+      tabBodies.forEach((body) => {
+        const { x, y } = body.position;
+        const isActive = body.tabIndex === activeTabIndex;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(body.angle);
+
+        // Body Circle Background
+        ctx.beginPath();
+        ctx.arc(0, 0, 26, 0, Math.PI * 2);
+        ctx.fillStyle = isActive ? (isDarkMode ? 'rgba(59, 130, 246, 0.25)' : 'rgba(219, 234, 254, 0.9)') : colors.bodyBg;
+        ctx.fill();
+
+        // Border & Glow
+        ctx.lineWidth = isActive ? 2.5 : 1.2;
+        ctx.strokeStyle = isActive ? colors.iconActive : colors.bodyBorder;
+        if (isActive) {
+          ctx.shadowColor = colors.activeGlow;
+          ctx.shadowBlur = 12;
+        }
+        ctx.stroke();
+
+        // Icon Drawing
+        const img = iconSvgs[body.tabIcon];
+        if (img && img.complete) {
+          ctx.globalAlpha = isActive ? 1.0 : 0.7;
+          ctx.drawImage(img, -12, -12, 24, 24);
+        }
+
+        ctx.restore();
+      });
+
+      // 3. Render Dynamic Pagination Dots
+      dotBodies.forEach((dot) => {
+        const { x, y } = dot.position;
+        const isActive = dot.dotIndex === activeTabIndex;
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        ctx.beginPath();
+        if (isActive) {
+          // Pill Capsule Shape for Active Index
+          ctx.roundRect(-10, -4, 20, 8, 4);
+          ctx.fillStyle = colors.dotActive;
+          ctx.shadowColor = colors.activeGlow;
+          ctx.shadowBlur = 8;
+        } else {
+          // Small Circle for Inactive Index
+          ctx.arc(0, 0, 4, 0, Math.PI * 2);
+          ctx.fillStyle = colors.dotInactive;
+        }
+        ctx.fill();
+        ctx.restore();
+      });
+    });
+
+    // --- Theme Switch Controller (Tab 4 Dark Mode) ---
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('change', (e) => {
+      isDarkMode = e.target.checked;
+      if (isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    });
+
+    // --- Responsive Window Resize Handler ---
+    window.addEventListener('resize', () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+
+      render.canvas.width = width;
+      render.canvas.height = height;
+
+      const newCenterX = width / 2;
+      const newDockY = height - 120;
+      const newDotsY = height - 48;
+
+      // Reposition walls
+      Body.setPosition(ground, { x: newCenterX, y: height + 30 });
+      Body.setPosition(rightWall, { x: width + 30, y: height / 2 });
+
+      // Update physics anchor springs & home positions
+      tabBodies.forEach((body, idx) => {
+        const x = newCenterX + (idx - 1.5) * tabSpacing;
+        body.homePos = { x, y: newDockY };
+      });
+
+      dotBodies.forEach((dot, idx) => {
+        const x = newCenterX + (idx - 1.5) * dotSpacing;
+        dot.homePos = { x, y: newDotsY };
+      });
+    });
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

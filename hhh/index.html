@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Android Money Manager - Home Balance Header Widget</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+
+  <!-- Outer Desktop Frame Container -->
+  <div class="device-frame">
+    <!-- Android Status Bar Header REMOVED -->
+
+    <!-- Mesh Gradient Background Canvas -->
+    <div class="mesh-bg">
+      <div class="mesh-ball ball-1"></div>
+      <div class="mesh-ball ball-2"></div>
+      <div class="mesh-ball ball-3"></div>
+    </div>
+
+    <!-- Mobile Views Container Overlay -->
+    <div class="views-overlay" id="viewsOverlay">
+      <div class="views-slider-track" id="viewsSliderTrack">
+        
+        <!-- TAB 0: HOME TAB (Housed with the Top Balance Header Widget & Swipable Cards) -->
+        <div class="tab-view active" id="tab-view-0">
+          <div class="home-scroll-container">
+            
+            <!-- TOP BALANCE HEADER WIDGET -->
+            <div class="balance-widget-card glass-card-widget">
+              
+              <!-- Header Top Bar: Main Account Dropdown Selector & Controls -->
+              <div class="widget-header-row">
+                <div class="dropdown-selector-container">
+                  <button class="dropdown-selector-btn" id="accountCategoryDropdownBtn">
+                    <span id="dropdownCategoryTitle">Wallets</span>
+                    <i data-lucide="chevron-down" class="dropdown-chevron"></i>
+                  </button>
+                  <button class="action-btn-circle" id="editAccountsBtn" title="Edit Sub-Accounts">
+                    <i data-lucide="edit-3"></i>
+                  </button>
+                </div>
+
+                <!-- Category Dropdown Overlay Menu (4 Options) -->
+                <div class="dropdown-menu-card" id="accountCategoryDropdownMenu">
+                  <div class="dropdown-menu-item active" data-cat="wallets">
+                    <i data-lucide="wallet"></i> Wallets
+                  </div>
+                  <div class="dropdown-menu-item" data-cat="bank_debit">
+                    <i data-lucide="credit-card"></i> Bank Accounts & Debit Cards
+                  </div>
+                  <div class="dropdown-menu-item" data-cat="living_budget">
+                    <i data-lucide="pie-chart"></i> Living Budget
+                  </div>
+                  <div class="dropdown-menu-item" data-cat="custom">
+                    <i data-lucide="sliders"></i> Custom
+                  </div>
+                  <div class="dropdown-menu-item" data-cat="topup_wallet">
+                    <i data-lucide="bus"></i> Top-up Wallet
+                  </div>
+                </div>
+
+                <!-- Top Right Secondary Actions: Info Bubble & Eye Mask -->
+                <div class="widget-top-actions">
+                  <button class="action-btn-circle" id="infoBubbleBtn" aria-label="Account Info">
+                    <i data-lucide="info"></i>
+                  </button>
+                  <div class="tooltip-bubble" id="infoTooltip">
+                    Swipe horizontally to view active sub-accounts
+                  </div>
+                  <button class="action-btn-circle" id="maskToggleBtn" aria-label="Toggle Balance Visibility">
+                    <i data-lucide="eye" id="eyeIcon"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Swipable Account Cards Carousel Surface -->
+              <div class="card-carousel-surface" id="cardCarouselSurface">
+                <!-- Swipable card view dynamically injected here -->
+              </div>
+
+              <!-- Carousel Pagination Dots (For Category Account Sub-views) -->
+              <div class="account-card-dots" id="accountCardDots"></div>
+
+              <!-- Card Action Footer Row: Add (+) & Switch Accounts Link -->
+              <div class="widget-footer-actions">
+                <button class="glass-pill-btn" id="addAccountBtn">
+                  <i data-lucide="plus"></i> Add Account
+                </button>
+                <button class="switch-accounts-link" id="switchAccountsBtn">
+                  Switch Accounts <i data-lucide="arrow-right"></i>
+                </button>
+              </div>
+
+            </div><!-- /TOP BALANCE HEADER WIDGET -->
+
+          </div>
+        </div><!-- /TAB 0 HOME -->
+
+        <!-- Tab 1: Transactions -->
+        <div class="tab-view" id="tab-view-1">
+          <div class="glass-card">
+            <h2>Transactions</h2>
+            <p>Recent payment logs and spending activity history.</p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Scanner -->
+        <div class="tab-view" id="tab-view-2">
+          <div class="glass-card">
+            <h2>Receipt Scanner</h2>
+            <p>Position bills inside the camera frame to auto-extract details.</p>
+          </div>
+        </div>
+
+        <!-- Tab 3 (Profile): User Settings & Language Switcher -->
+        <div class="tab-view" id="tab-view-3">
+          <div class="profile-scroll-container">
+            <div class="profile-settings-card glass-card-widget">
+              <div class="profile-header-user">
+                <div class="profile-avatar">
+                  <i data-lucide="user"></i>
+                </div>
+                <div class="profile-user-info">
+                  <h3 data-i18n="profile_title">Profile & Preferences</h3>
+                  <p data-i18n="profile_subtitle">Account settings & language options</p>
+                </div>
+              </div>
+
+              <div class="profile-setting-row">
+                <div class="setting-row-left">
+                  <i data-lucide="moon" class="setting-icon"></i>
+                  <div>
+                    <span class="setting-label" data-i18n="dark_mode">Dark Theme</span>
+                    <p class="setting-subtext" data-i18n="dark_mode_sub">Toggle dark aesthetic mode</p>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="themeCheckbox">
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="profile-setting-row clickable-setting" id="changeLangBtn">
+                <div class="setting-row-left">
+                  <i data-lucide="globe" class="setting-icon"></i>
+                  <div>
+                    <span class="setting-label" data-i18n="change_language">Change Language</span>
+                    <p class="setting-subtext" id="activeLangSubtext">English (Default)</p>
+                  </div>
+                </div>
+                <div class="setting-row-right">
+                  <span class="active-lang-badge" id="activeLangBadge">English</span>
+                  <i data-lucide="chevron-right" style="width:16px;height:16px;color:#64748b;"></i>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /views-slider-track -->
+    </div>
+
+    <!-- FLOATING BOTTOM NAVIGATION DOCK -->
+    <div class="dock-wrapper">
+      <div class="dock-container">
+        <!-- Center: Main Navigation Pill Bar + SINGLE Dynamic Indicator -->
+        <div class="center-nav-group">
+          <nav class="nav-pill-bar">
+            <button class="nav-item active" data-tab="0" aria-label="Home">
+              <span class="active-glow"></span>
+              <i data-lucide="house"></i>
+            </button>
+
+            <button class="nav-item" data-tab="1" aria-label="Transaction History">
+              <i data-lucide="receipt"></i>
+            </button>
+
+            <button class="nav-item scanner-item" data-tab="2" aria-label="Bill Scanner">
+              <i data-lucide="scan"></i>
+            </button>
+
+            <button class="nav-item profile-item" data-tab="3" aria-label="Profile">
+              <div class="profile-ring">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Profile Avatar" class="profile-avatar">
+              </div>
+            </button>
+          </nav>
+
+          <!-- SINGLE DYNAMIC PILL INDICATOR SYSTEM -->
+          <div class="swipe-indicator" id="swipeIndicator">
+            <span class="indicator-item active-pill" data-index="0"></span>
+            <span class="indicator-item dot" data-index="1"></span>
+            <span class="indicator-item dot" data-index="2"></span>
+            <span class="indicator-item dot" data-index="3"></span>
+          </div>
+        </div>
+
+        <!-- Right: Quick Add Action Group -->
+        <div class="quick-add-group" id="quickAddTrigger">
+          <button class="glass-icon-btn plus-btn" aria-label="Add Transaction">
+            <i data-lucide="plus"></i>
+          </button>
+          <div class="type-input-capsule">
+            <span class="placeholder-text">Type Here</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Android Home Gesture Indicator Bar -->
+      <div class="android-home-indicator"></div>
+    </div>
+
+    <!-- FULL-SCREEN MODAL: BUTTON 1 - GLOBAL ACCOUNTS MANAGER MODAL -->
+    <div class="full-modal-overlay" id="globalAccountsModal">
+      <div class="full-modal-content glass-modal">
+        <div class="modal-top-bar">
+          <h3 data-i18n="global_accounts_manager">Global Accounts Manager</h3>
+          <button class="close-modal-btn" id="closeGlobalModal">&times;</button>
+        </div>
+        
+        <div class="modal-body-scroll" id="globalAccountsModalBody">
+          <!-- Collapsible dropdown accordions for main categories & inline renaming injected dynamically -->
+        </div>
+
+        <div class="modal-footer-bar">
+          <button class="primary-btn" id="saveGlobalAccountsBtn" data-i18n="done_btn">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULL-SCREEN MODAL: BUTTON 2 - SUB-ACCOUNT SETTINGS MODAL (Scoped to Current Active Card) -->
+    <div class="full-modal-overlay" id="subAccountSettingsModal">
+      <div class="full-modal-content glass-modal compact-modal">
+        <div class="modal-top-bar">
+          <h3 id="subAccSettingsTitle">Sub-Account Settings</h3>
+          <button class="close-modal-btn" id="closeSubAccSettingsModal">&times;</button>
+        </div>
+        
+        <form class="modal-form" id="subAccountSettingsForm">
+          <div class="form-group">
+            <label>Sub-Account Title</label>
+            <input type="text" id="subAccTitleInput" required />
+          </div>
+          <div class="form-group">
+            <label>Subtitle / Description</label>
+            <input type="text" id="subAccSubtitleInput" />
+          </div>
+          <div class="form-group" id="balanceGroup">
+            <label id="balanceLabel">Balance (LKR)</label>
+            <input type="number" step="0.01" id="subAccBalanceInput" />
+          </div>
+          <div class="form-group" id="limitGroup">
+            <label id="limitLabel">Limit / Allocation (LKR)</label>
+            <input type="number" step="0.01" id="subAccLimitInput" />
+          </div>
+          <div class="form-group" id="tagGroup">
+            <label>Tag / Extra Details</label>
+            <input type="text" id="subAccTagInput" placeholder="e.g. Yield 11.5% p.a." />
+          </div>
+          <div class="modal-footer-bar" style="padding: 12px 0 0 0;">
+            <button type="submit" class="primary-btn">Save Sub-Account Details</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- FULL-SCREEN MODAL: "SWITCH ACCOUNTS" - DISPLAY & VISIBILITY MANAGER MODAL -->
+    <div class="full-modal-overlay" id="switchAccountsModal">
+      <div class="full-modal-content glass-modal">
+        <div class="modal-top-bar">
+          <h3 data-i18n="visibility_manager">Display & Visibility Manager</h3>
+          <button class="close-modal-btn" id="closeSwitchModal">&times;</button>
+        </div>
+        
+        <div class="modal-body-scroll" id="switchAccountsModalBody">
+          <!-- Category accordions with Show/Hide toggles and Quick Jump click targets -->
+        </div>
+
+        <div class="modal-footer-bar">
+          <button class="primary-btn" id="saveVisibilityBtn" data-i18n="done_btn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ADD ACCOUNT FORM FLOW -->
+    <div class="full-modal-overlay" id="addAccountModal">
+      <div class="full-modal-content glass-modal compact-modal">
+        <div class="modal-top-bar">
+          <h3>Create New Account</h3>
+          <button class="close-modal-btn" id="closeAddModal">&times;</button>
+        </div>
+        
+        <form class="modal-form" id="newAccountForm">
+          <div class="form-group">
+            <label>Account Name</label>
+            <input type="text" id="newAccName" placeholder="e.g. Salary Bank, Amex Card" required />
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="newAccCategory">
+              <option value="Wallets">Wallets</option>
+              <option value="Budget">Budget</option>
+              <option value="Bank Accounts / Debit Cards">Bank / Debit Card</option>
+              <option value="Credit Cards">Credit Card</option>
+              <option value="Loans">Loans</option>
+              <option value="Someone's Money">Someone's Money</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label>Initial Balance (Rs)</label>
+              <input type="number" id="newAccBalance" step="0.01" value="0.00" />
+            </div>
+            <div class="form-group half" id="limitGroup">
+              <label>Limit / Budget (Rs)</label>
+              <input type="number" id="newAccLimit" step="0.01" value="0.00" />
+            </div>
+          </div>
+
+          <div class="form-toggle-row">
+            <label class="toggle-text-label">
+              <span>Belongs to Primary Wallet</span>
+              <small>Merge transactions into primary wallet balance</small>
+            </label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="newAccBelongsWallet" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <button type="submit" class="primary-btn" style="margin-top: 14px;">Create Account</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- NEW EMPTY QUICK ADD PAGE -->
+    <div class="full-modal-overlay" id="quickAddEmptyModal">
+      <div class="full-modal-content glass-modal fullscreen-modal-mode" style="width: 100%; height: 100%; max-width: none; border-radius: 0; margin: 0;">
+        <div class="modal-top-bar">
+          <h3>Add New Transaction</h3>
+          <button class="close-modal-btn" id="closeQuickAddEmptyBtn">&times;</button>
+        </div>
+        <div class="modal-body-scroll" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 280px; padding-top: 24px;">
+          <div class="transaction-type-wrapper">
+            <div class="type-toggle-container" id="transactionTypeToggle">
+              <div class="type-sliding-indicator" id="typeIndicator"></div>
+              <button class="type-toggle-btn active" data-type="expense">Outcome</button>
+              <button class="type-toggle-btn" data-type="income">Income</button>
+            </div>
+          </div>
+
+          <div class="quick-add-section">
+            <label class="quick-add-label">Select Account</label>
+            <div class="account-selector-chips">
+              <button class="acc-chip active" data-acc="wallets"><i data-lucide="wallet"></i> Wallets</button>
+              <button class="acc-chip" data-acc="bank_debit"><i data-lucide="landmark"></i> Bank Account</button>
+              <button class="acc-chip" data-acc="topup_wallet"><i data-lucide="bus"></i> Top-up Wallet</button>
+            </div>
+          </div>
+
+          <form class="modal-form" id="quickAddForm" style="width: 100%; padding: 0 16px 16px 16px; margin-top: -10px;">
+            <div class="form-group amount-group" style="text-align: center; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label style="color: var(--text-muted); font-size: 0.88rem; font-weight: 600; margin: 0;">Amount</label>
+                <button type="button" id="decimalLockBtn" class="decimal-lock-pill locked" title="Toggle Cents Lock (.00)">
+                  <i data-lucide="lock" class="lock-icon" style="width: 12px; height: 12px;"></i>
+                  <span id="decimalLockText">.00 Locked</span>
+                </button>
+              </div>
+              <div class="amount-display-container">
+                <span class="currency-label-badge">LKR</span>
+                <input type="text" inputmode="numeric" id="transactionAmount" value="0.00" class="amount-number-field" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Category</label>
+              <button type="button" id="openCategoryModalBtn" style="width: 100%; padding: 14px 16px; background: rgba(15,23,42,0.05); border: 1px solid rgba(15,23,42,0.1); border-radius: 14px; text-align: left; color: var(--text-main); font-size: 0.95rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                <span id="selectedCategoryText">Select category</span>
+                <i data-lucide="chevron-right" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
+              </button>
+            </div>
+
+            <div class="form-group">
+              <label>Note</label>
+              <div style="position: relative;">
+                <i data-lucide="align-left" style="position: absolute; left: 14px; top: 13px; width: 18px; height: 18px; color: var(--text-muted);"></i>
+                <input type="text" id="transactionNote" placeholder="Write note" style="padding-left: 42px;" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Date & Time</label>
+              <div style="position: relative;">
+                <i data-lucide="calendar" style="position: absolute; left: 14px; top: 13px; width: 18px; height: 18px; color: var(--text-muted);"></i>
+                <input type="datetime-local" id="transactionDateTime" style="padding-left: 42px;" />
+              </div>
+            </div>
+
+            <button type="submit" class="primary-btn" style="margin-top: 20px; width: 100%;">Save Transaction</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY SELECTION MODAL -->
+    <div class="full-modal-overlay" id="categorySelectionModal">
+      <div class="full-modal-content glass-modal fullscreen-modal-mode" style="width: 100%; height: 100%; max-width: none; border-radius: 0; margin: 0; background: var(--bg-canvas);">
+        <div class="modal-top-bar" style="border-bottom: 1px solid rgba(15,23,42,0.1); background: var(--glass-bg);">
+          <button class="action-btn-circle" id="closeCategoryModalBtn" style="width: 34px; height: 34px; z-index: 10; cursor: pointer;"><i data-lucide="arrow-left"></i></button>
+          <h3 style="flex:1; text-align:left; margin-left:14px; font-size: 1.1rem;">Select category</h3>
+          <button class="action-btn-circle" id="catSearchBtn" style="width: 34px; height: 34px;"><i data-lucide="search"></i></button>
+        </div>
+        
+        <!-- Dynamic Tabs Header -->
+        <div class="category-tabs-header" id="categoryTabsHeader">
+          <button class="cat-tab-btn active" id="catTab1">OUTCOME</button>
+          <button class="cat-tab-btn" id="catTab2">TRANSFER TO</button>
+          <button class="cat-tab-btn" id="catTab3">LENT (TO RECEIVE)</button>
+        </div>
+
+        <div class="modal-body-scroll" style="padding: 0; flex: 1; overflow-y: auto;">
+          <div class="category-list" id="categoryListContainer">
+            <!-- Categories dynamically injected by script.js -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEARCH SWIPE MODAL -->
+    <div class="full-modal-overlay" id="searchSwipeModal">
+      <div class="full-modal-content glass-modal fullscreen-modal-mode" style="width: 100%; height: 100%; max-width: none; border-radius: 0; margin: 0; background: var(--bg-canvas);">
+        <div class="modal-top-bar" style="background: var(--glass-bg); padding: 12px 16px;">
+          <div style="flex:1; display:flex; align-items:center; background: rgba(15,23,42,0.07); border-radius: 20px; padding: 6px 14px; margin-right: 12px;">
+             <i data-lucide="search" style="color:var(--text-muted); width: 18px; height:18px; margin-right: 8px;"></i>
+             <input type="text" id="swipeSearchInput" placeholder="Search transactions..." style="border:none; background:transparent; width:100%; outline:none; font-size:0.95rem; color:var(--text-main);">
+          </div>
+          <button class="close-modal-btn" id="closeSearchSwipeBtn" style="font-size:0.9rem; background:transparent; border:none; font-weight:600; color:var(--accent-blue); cursor:pointer;">Cancel</button>
+        </div>
+        <div class="modal-body-scroll" style="padding: 30px 20px; text-align: center; color: var(--text-muted);">
+           <i data-lucide="search" style="width: 44px; height: 44px; opacity: 0.3; margin-bottom: 12px;"></i>
+           <p>Type above to search transactions & accounts</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT SWIPE MODAL -->
+    <div class="full-modal-overlay" id="reportSwipeModal">
+      <div class="full-modal-content glass-modal fullscreen-modal-mode" style="width: 100%; height: 100%; max-width: none; border-radius: 0; margin: 0; background: var(--bg-canvas);">
+        <div class="modal-top-bar" style="background: var(--glass-bg);">
+          <button class="action-btn-circle" id="closeReportSwipeBtn" style="width: 34px; height: 34px; cursor: pointer;"><i data-lucide="arrow-left"></i></button>
+          <h3 style="flex:1; text-align:left; margin-left:14px; font-size: 1.1rem;">Money Report</h3>
+        </div>
+        <div class="modal-body-scroll" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+           <i data-lucide="bar-chart-3" style="width: 54px; height: 54px; margin-bottom: 16px; opacity: 0.4; color: var(--accent-blue);"></i>
+           <h4 style="color: var(--text-main); margin-bottom: 8px;">Financial Summary Report</h4>
+           <p style="font-size: 0.9rem;">Your monthly income vs outcome report will appear here.</p>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- End device-frame -->
+  <!-- LIGHT LIQUID GLASS LANGUAGE SELECTION MODAL -->
+  <div class="full-modal-overlay" id="languageModal">
+    <div class="modal-backdrop"></div>
+    <div class="glass-modal-card">
+      <div class="modal-top-bar">
+        <h3 data-i18n="select_language_title">Select Language</h3>
+        <button class="close-modal-btn" id="closeLangModal">&times;</button>
+      </div>
+      <div class="modal-body-scroll">
+        <p style="font-size:0.82rem;color:#64748b;margin-bottom:12px;" data-i18n="select_language_sub">Choose your preferred app display language:</p>
+        
+        <div class="lang-options-group">
+          <!-- English Option -->
+          <div class="lang-option-card active" data-lang="en">
+            <div class="lang-option-left">
+              <span class="lang-flag">🇬🇧</span>
+              <div>
+                <h4>English</h4>
+                <p>Wallet • Transactions • Accounts</p>
+              </div>
+            </div>
+            <i data-lucide="check-circle-2" class="lang-check-icon"></i>
+          </div>
+
+          <!-- Sinhala Option -->
+          <div class="lang-option-card" data-lang="si">
+            <div class="lang-option-left">
+              <span class="lang-flag">🇱🇰</span>
+              <div>
+                <h4>සින්හල</h4>
+                <p>පසුම්බිය • ගනුදෙනු • ගිණුම්</p>
+              </div>
+            </div>
+            <i data-lucide="circle" class="lang-check-icon"></i>
+          </div>
+
+          <!-- Singlish Option -->
+          <div class="lang-option-card" data-lang="singlish">
+            <div class="lang-option-left">
+              <span class="lang-flag">💬</span>
+              <div>
+                <h4>සින්ග්ලිශ්</h4>
+                <p>පර්ස් එක • ට්‍රාන්ස්ඇක්ෂන් • ඇකවුන්ට්ස්</p>
+              </div>
+            </div>
+            <i data-lucide="circle" class="lang-check-icon"></i>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer-bar">
+        <button class="primary-btn" id="saveLangBtn" data-i18n="done_btn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js?v=5"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
   <title>Android Money Manager - Home Balance Header Widget</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -92,7 +92,7 @@
               <!-- Card Action Footer Row: Add (+) & Switch Accounts Link -->
               <div class="widget-footer-actions">
                 <button class="glass-pill-btn" id="addAccountBtn">
-                  <i data-lucide="plus"></i> Add Account
+                  <i data-lucide="plus"></i> Add New Wallet
                 </button>
                 <button class="switch-accounts-link" id="switchAccountsBtn">
                   Switch Accounts <i data-lucide="arrow-right"></i>
@@ -115,12 +115,12 @@
         <!-- Tab 2: Scanner -->
         <div class="tab-view" id="tab-view-2">
           <div class="glass-card">
-            <h2>Receipt Scanner</h2>
-            <p>Position bills inside the camera frame to auto-extract details.</p>
+            <h2>QR Scanner</h2>
+            <p>Scan invoices, slips and payment codes.</p>
           </div>
         </div>
 
-        <!-- Tab 3 (Profile): User Settings & Language Switcher -->
+        <!-- Tab 3: Profile & Preferences -->
         <div class="tab-view" id="tab-view-3">
           <div class="profile-scroll-container">
             <div class="profile-settings-card glass-card-widget">
@@ -134,18 +134,28 @@
                 </div>
               </div>
 
-              <div class="profile-setting-row">
-                <div class="setting-row-left">
-                  <i data-lucide="moon" class="setting-icon"></i>
-                  <div>
-                    <span class="setting-label" data-i18n="dark_mode">Dark Theme</span>
-                    <p class="setting-subtext" data-i18n="dark_mode_sub">Toggle dark aesthetic mode</p>
+              <!-- 3-Way Theme Selector (System Auto / Light / Dark) -->
+              <div class="profile-setting-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                <div class="setting-row-left" style="width: 100%; justify-content: space-between;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <i data-lucide="sun-moon" class="setting-icon"></i>
+                    <div>
+                      <span class="setting-label">App Theme</span>
+                      <p class="setting-subtext" id="themeModeSubtext">System Auto (Default)</p>
+                    </div>
                   </div>
                 </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="themeCheckbox">
-                  <span class="slider"></span>
-                </label>
+                <div class="theme-mode-segmented" id="themeModeSegmented">
+                  <button type="button" class="theme-seg-btn active" data-theme-mode="system">
+                    <i data-lucide="smartphone"></i> System
+                  </button>
+                  <button type="button" class="theme-seg-btn" data-theme-mode="light">
+                    <i data-lucide="sun"></i> Light
+                  </button>
+                  <button type="button" class="theme-seg-btn" data-theme-mode="dark">
+                    <i data-lucide="moon"></i> Dark
+                  </button>
+                </div>
               </div>
 
               <div class="profile-setting-row clickable-setting" id="changeLangBtn">
@@ -164,38 +174,48 @@
 
             </div>
           </div>
-        </div>
+        </div><!-- /TAB 3 PROFILE -->
 
-      </div><!-- /views-slider-track -->
+      </div><!-- /VIEWS SLIDER TRACK -->
     </div>
 
-    <!-- FLOATING BOTTOM NAVIGATION DOCK -->
+    <!-- FLOATING PERSISTENT BOTTOM DOCK CONTAINER -->
     <div class="dock-wrapper">
+
+      <!-- Center Dock Container -->
       <div class="dock-container">
-        <!-- Center: Main Navigation Pill Bar + SINGLE Dynamic Indicator -->
+
+        <!-- Left Nav Pill + Sub-Indicator Group -->
         <div class="center-nav-group">
           <nav class="nav-pill-bar">
+            <!-- Nav Item 0: Home -->
             <button class="nav-item active" data-tab="0" aria-label="Home">
-              <span class="active-glow"></span>
-              <i data-lucide="house"></i>
+              <i data-lucide="home" class="nav-icon"></i>
+              <div class="active-glow"></div>
             </button>
 
-            <button class="nav-item" data-tab="1" aria-label="Transaction History">
-              <i data-lucide="receipt"></i>
+            <!-- Nav Item 1: Transactions -->
+            <button class="nav-item" data-tab="1" aria-label="Transactions">
+              <i data-lucide="receipt" class="nav-icon"></i>
+              <div class="active-glow"></div>
             </button>
 
-            <button class="nav-item scanner-item" data-tab="2" aria-label="Bill Scanner">
-              <i data-lucide="scan"></i>
+            <!-- Nav Item 2: QR Scanner -->
+            <button class="nav-item" data-tab="2" aria-label="Scan QR">
+              <i data-lucide="scan" class="nav-icon"></i>
+              <div class="active-glow"></div>
             </button>
 
-            <button class="nav-item profile-item" data-tab="3" aria-label="Profile">
+            <!-- Nav Item 3: Profile -->
+            <button class="nav-item" data-tab="3" aria-label="Profile">
               <div class="profile-ring">
-                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Profile Avatar" class="profile-avatar">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="User" class="nav-profile-avatar">
               </div>
+              <div class="active-glow"></div>
             </button>
           </nav>
 
-          <!-- SINGLE DYNAMIC PILL INDICATOR SYSTEM -->
+          <!-- SINGLE DYNAMIC PILL INDICATOR SYSTEM (Directly Under Nav Pill Bar) -->
           <div class="swipe-indicator" id="swipeIndicator">
             <span class="indicator-item active-pill" data-index="0"></span>
             <span class="indicator-item dot" data-index="1"></span>
@@ -249,26 +269,89 @@
         <form class="modal-form" id="subAccountSettingsForm">
           <div class="form-group">
             <label>Sub-Account Title</label>
-            <input type="text" id="subAccTitleInput" required />
+            <input type="text" id="subAccTitleInput" required autocomplete="off" />
           </div>
           <div class="form-group">
             <label>Subtitle / Description</label>
-            <input type="text" id="subAccSubtitleInput" />
+            <input type="text" id="subAccSubtitleInput" autocomplete="off" />
           </div>
-          <div class="form-group" id="balanceGroup">
-            <label id="balanceLabel">Balance (LKR)</label>
-            <input type="number" step="0.01" id="subAccBalanceInput" />
+
+          <div class="form-group">
+            <label>Sub-Account Icon</label>
+            <div class="wallet-icon-selector" id="editSubAccIconSelector">
+              <!-- Icons populated by JS -->
+            </div>
           </div>
-          <div class="form-group" id="limitGroup">
-            <label id="limitLabel">Limit / Allocation (LKR)</label>
-            <input type="number" step="0.01" id="subAccLimitInput" />
+
+          <!-- Dynamic Toggle: Set a limit for this wallet? -->
+          <div class="form-toggle-row" style="background: rgba(15,23,42,0.04); padding: 12px; border-radius: 14px; margin-bottom: 12px;">
+            <label class="toggle-text-label" for="subAccLimitToggle" style="cursor: pointer;">
+              <span style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">Set a limit for this wallet?</span>
+              <small style="color: var(--text-muted); display: block; margin-top: 2px;">Switch between Basic Wallet and Tracking Wallet</small>
+            </label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="subAccLimitToggle">
+              <span class="slider"></span>
+            </label>
           </div>
-          <div class="form-group" id="tagGroup">
-            <label>Tag / Extra Details</label>
-            <input type="text" id="subAccTagInput" placeholder="e.g. Yield 11.5% p.a." />
+
+          <div class="form-group" id="subAccLimitGroup" style="display: none;">
+            <label id="limitLabel">Limit Amount (LKR)</label>
+            <input type="number" step="0.01" id="subAccLimitInput" placeholder="e.g. 50000.00" />
           </div>
+
           <div class="modal-footer-bar" style="padding: 12px 0 0 0;">
             <button type="submit" class="primary-btn">Save Sub-Account Details</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- FULL-SCREEN MODAL: CREATE NEW SUB-WALLET FLOW -->
+    <div class="full-modal-overlay" id="createSubAccountModal">
+      <div class="full-modal-content glass-modal compact-modal">
+        <div class="modal-top-bar">
+          <h3 id="createSubModalTitle">Create Sub-Wallet</h3>
+          <button class="close-modal-btn" id="closeCreateSubModal">&times;</button>
+        </div>
+        
+        <form class="modal-form" id="createSubAccountForm">
+          <div class="form-group">
+            <label>Sub-Wallet Title</label>
+            <input type="text" id="newSubTitle" placeholder="e.g. Food &amp; Dining, Petty Cash" required autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label>Subtitle / Description</label>
+            <input type="text" id="newSubSubtitle" placeholder="e.g. Daily lunch, Office expenses" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label>Sub-Wallet Icon</label>
+            <div class="wallet-icon-selector" id="newSubIconSelector">
+              <!-- Icons populated by JS -->
+            </div>
+          </div>
+
+          <!-- Dynamic Toggle: Set a limit for this wallet? -->
+          <div class="form-toggle-row" style="background: rgba(15,23,42,0.04); padding: 12px; border-radius: 14px; margin-bottom: 12px;">
+            <label class="toggle-text-label" for="newSubLimitToggle" style="cursor: pointer;">
+              <span style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">Set a limit for this wallet?</span>
+              <small style="color: var(--text-muted); display: block; margin-top: 2px;">Switch between Basic Wallet and Tracking Wallet</small>
+            </label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="newSubLimitToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="form-group" id="newSubLimitGroup" style="display: none;">
+            <label>Limit Amount (LKR)</label>
+            <input type="number" step="0.01" id="newSubLimitInput" placeholder="e.g. 50000.00" />
+          </div>
+
+          <div class="modal-footer-bar" style="padding: 12px 0 0 0;">
+            <button type="submit" class="primary-btn">Create Sub-Wallet</button>
           </div>
         </form>
       </div>
@@ -292,55 +375,34 @@
       </div>
     </div>
 
-    <!-- MODAL: ADD ACCOUNT FORM FLOW -->
+    <!-- MODAL: ADD WALLET FORM FLOW -->
     <div class="full-modal-overlay" id="addAccountModal">
       <div class="full-modal-content glass-modal compact-modal">
         <div class="modal-top-bar">
-          <h3>Create New Account</h3>
+          <h3>Create New Wallet</h3>
           <button class="close-modal-btn" id="closeAddModal">&times;</button>
         </div>
         
         <form class="modal-form" id="newAccountForm">
           <div class="form-group">
-            <label>Account Name</label>
-            <input type="text" id="newAccName" placeholder="e.g. Salary Bank, Amex Card" required />
+            <label>Wallet Name</label>
+            <input type="text" id="newAccName" placeholder="e.g. Daily Cash, Main Budget" required autocomplete="off" />
           </div>
 
           <div class="form-group">
-            <label>Category</label>
-            <select id="newAccCategory">
-              <option value="Wallets">Wallets</option>
-              <option value="Budget">Budget</option>
-              <option value="Bank Accounts / Debit Cards">Bank / Debit Card</option>
-              <option value="Credit Cards">Credit Card</option>
-              <option value="Loans">Loans</option>
-              <option value="Someone's Money">Someone's Money</option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group half">
-              <label>Initial Balance (Rs)</label>
-              <input type="number" id="newAccBalance" step="0.01" value="0.00" />
-            </div>
-            <div class="form-group half" id="limitGroup">
-              <label>Limit / Budget (Rs)</label>
-              <input type="number" id="newAccLimit" step="0.01" value="0.00" />
+            <label>Wallet Icon</label>
+            <div class="wallet-icon-selector" id="walletIconSelector">
+              <button type="button" class="wallet-icon-option active" data-icon="wallet" title="Wallet"><i data-lucide="wallet"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="credit-card" title="Card"><i data-lucide="credit-card"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="landmark" title="Bank"><i data-lucide="landmark"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="pie-chart" title="Budget"><i data-lucide="pie-chart"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="coins" title="Savings"><i data-lucide="coins"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="bus" title="Transit"><i data-lucide="bus"></i></button>
+              <button type="button" class="wallet-icon-option" data-icon="sliders" title="Custom"><i data-lucide="sliders"></i></button>
             </div>
           </div>
 
-          <div class="form-toggle-row">
-            <label class="toggle-text-label">
-              <span>Belongs to Primary Wallet</span>
-              <small>Merge transactions into primary wallet balance</small>
-            </label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="newAccBelongsWallet" checked>
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <button type="submit" class="primary-btn" style="margin-top: 14px;">Create Account</button>
+          <button type="submit" class="primary-btn" style="margin-top: 18px;">Create Wallet</button>
         </form>
       </div>
     </div>
@@ -363,10 +425,8 @@
 
           <div class="quick-add-section">
             <label class="quick-add-label">Select Account</label>
-            <div class="account-selector-chips">
-              <button class="acc-chip active" data-acc="wallets"><i data-lucide="wallet"></i> Wallets</button>
-              <button class="acc-chip" data-acc="bank_debit"><i data-lucide="landmark"></i> Bank Account</button>
-              <button class="acc-chip" data-acc="topup_wallet"><i data-lucide="bus"></i> Top-up Wallet</button>
+            <div class="account-selector-chips" id="accountSelectorChips">
+              <!-- Dynamically injected from subAccountsData by script.js -->
             </div>
           </div>
 
@@ -402,10 +462,16 @@
             </div>
 
             <div class="form-group">
-              <label>Date & Time</label>
-              <div style="position: relative;">
-                <i data-lucide="calendar" style="position: absolute; left: 14px; top: 13px; width: 18px; height: 18px; color: var(--text-muted);"></i>
-                <input type="datetime-local" id="transactionDateTime" style="padding-left: 42px;" />
+              <label>Date &amp; Time</label>
+              <div style="display: flex; gap: 10px;">
+                <div style="position: relative; flex: 1;">
+                  <i data-lucide="calendar" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); pointer-events: none; z-index: 1;"></i>
+                  <input type="date" id="transactionDate" style="padding-left: 36px; width: 100%;" />
+                </div>
+                <div style="position: relative; flex: 1;">
+                  <i data-lucide="clock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); pointer-events: none; z-index: 1;"></i>
+                  <input type="time" id="transactionTime" style="padding-left: 36px; width: 100%;" />
+                </div>
               </div>
             </div>
 
@@ -528,7 +594,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=22"></script>
   <script>
     lucide.createIcons();
   </script>

@@ -24,6 +24,99 @@ document.addEventListener('DOMContentLoaded', () => {
   let isBalanceMasked = false;
   let tooltipTimeoutId = null;
 
+  let subAccountsData = {
+    wallets: [
+      { id: "w1", title: "Main Cash Wallet", icon: "wallet", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Primary Liquid Cash" },
+      { id: "w2", title: "Budget for Wallet", icon: "pie-chart", active: true, order: 1, spent: 0.00, limit: 50000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Spent Allocation" },
+      { id: "w3", title: "Loans (Cash Borrowed)", icon: "circle-dollar-sign", active: true, order: 2, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Borrowed Cash Outstanding" },
+      { id: "w4", title: "Someone's Money", icon: "users", active: true, order: 3, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Third-Party Held Cash" },
+      { id: "w5", title: "Custom Sub-Wallet", icon: "sliders", active: false, order: 4, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Emergency Cash Vault" }
+    ],
+    bank_debit: [
+      { id: "b1", title: "Commercial Bank Savings", icon: "landmark", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Primary Bank Account" },
+      { id: "b2", title: "Debit Cards", icon: "credit-card", active: true, order: 1, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Linked Debit Account" },
+      { id: "b3", title: "Credit Cards", icon: "credit-card", active: true, order: 2, limit: 100000.00, spent: 0.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Credit Line Used" },
+      { id: "b4", title: "Card/Bank Budget", icon: "pie-chart", active: true, order: 3, spent: 0.00, limit: 50000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Digital Spending Allocation" },
+      { id: "b5", title: "Loans", icon: "circle-dollar-sign", active: false, order: 4, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Bank Loan Balance" },
+      { id: "b6", title: "Someone's Money", icon: "users", active: false, order: 5, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Escrow Bank Deposit" },
+      { id: "b7", title: "Custom Sub-Account", icon: "sliders", active: false, order: 6, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "High-Yield Vault" }
+    ],
+    living_budget: [
+      { id: "lb1", title: "Wallet Budget", icon: "wallet", active: true, order: 0, spent: 0.00, limit: 50000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Cash Living Expense" },
+      { id: "lb2", title: "Bank/Debit Budget", icon: "landmark", active: true, order: 1, spent: 0.00, limit: 100000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Direct Debit Utilities" },
+      { id: "lb3", title: "Credit Card Budget", icon: "credit-card", active: true, order: 2, spent: 0.00, limit: 50000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Card Living Spend" },
+      { id: "lb4", title: "Loans Budget", icon: "circle-dollar-sign", active: false, order: 3, spent: 0.00, limit: 75000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Debt Repayment Allowance" },
+      { id: "lb5", title: "Custom Time-Range Budget", icon: "calendar", active: true, order: 4, type: "time_range", categoryOption: "Tracking Wallet", activeRange: "1 Month", ranges: { "1 Month": { spent: 0.00, limit: 200000.00 }, "Multi-Month": { spent: 0.00, limit: 600000.00 }, "1 Year": { spent: 0.00, limit: 2400000.00 } } }
+    ],
+    custom: [
+      { id: "c1", title: "Vault & Emergency Reserve", icon: "sliders", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Yield: 11.5% p.a." },
+      { id: "c2", title: "Investment Reserve Goal", icon: "pie-chart", active: true, order: 1, spent: 0.00, limit: 1000000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Goal Allocation" },
+      { id: "c3", title: "Secondary Savings Sub-Vault", icon: "wallet", active: false, order: 2, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Fixed Deposit Reserve" }
+    ],
+    topup_wallet: [
+      { id: "t1", title: "Transit Card", icon: "bus", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Metro/Bus Wallet" }
+    ]
+  };
+
+  const catIconMap = {
+    wallets: "wallet",
+    bank_debit: "credit-card",
+    living_budget: "pie-chart",
+    custom: "sliders",
+    topup_wallet: "bus"
+  };
+
+  const AVAILABLE_ICONS = [
+    { name: 'wallet', title: 'Wallet' },
+    { name: 'credit-card', title: 'Card' },
+    { name: 'landmark', title: 'Bank' },
+    { name: 'coins', title: 'Coins' },
+    { name: 'banknote', title: 'Cash' },
+    { name: 'pie-chart', title: 'Budget' },
+    { name: 'shopping-bag', title: 'Shopping' },
+    { name: 'shopping-cart', title: 'Cart' },
+    { name: 'coffee', title: 'Coffee' },
+    { name: 'utensils', title: 'Dining' },
+    { name: 'car', title: 'Vehicle' },
+    { name: 'bus', title: 'Transit' },
+    { name: 'home', title: 'Home' },
+    { name: 'plane', title: 'Travel' },
+    { name: 'heart', title: 'Health' },
+    { name: 'gift', title: 'Gift' },
+    { name: 'phone', title: 'Mobile' },
+    { name: 'tv', title: 'Entertainment' },
+    { name: 'shield', title: 'Insurance' },
+    { name: 'sliders', title: 'Custom' }
+  ];
+
+  function setupIconSelector(containerId, initialIcon, onChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    AVAILABLE_ICONS.forEach(({ name, title }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `wallet-icon-option ${name === initialIcon ? 'active' : ''}`;
+      btn.setAttribute('data-icon', name);
+      btn.title = title;
+      btn.innerHTML = `<i data-lucide="${name}"></i>`;
+      container.appendChild(btn);
+    });
+
+    container.onclick = (e) => {
+      const btn = e.target.closest('.wallet-icon-option');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      container.querySelectorAll('.wallet-icon-option').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const chosen = btn.getAttribute('data-icon') || 'wallet';
+      if (onChange) onChange(chosen);
+    };
+
+    if (window.lucide) lucide.createIcons();
+  }
+
   // --- LOCALIZATION & LANGUAGE ENGINE (ENGLISH, SI, SINGLISH) ---
   let currentLang = "en";
 
@@ -48,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
       select_language_title: "Select Language",
       select_language_sub: "Choose your preferred app display language:",
       done_btn: "Done",
-      add_account: "Add Account",
+      add_account: "Add New Wallet",
       switch_accounts: "Switch Accounts"
     },
     si: {
@@ -65,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       select_language_title: "භාෂාව තෝරන්න",
       select_language_sub: "ඔබට අවශ්‍ය ප්‍රකාශන භාෂාව තෝරන්න:",
       done_btn: "තහවුරු කරන්න",
-      add_account: "ගිණුමක් එකතු කරන්න",
+      add_account: "නව පසුම්බියක් එක්කරන්න",
       switch_accounts: "ගිණුම මාරු කරන්න"
     },
     singlish: {
@@ -82,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       select_language_title: "ලැන්වේජ් එක සිලෙක්ට් කරන්න",
       select_language_sub: "ඔයාට ඕන ලැන්වේජ් ඔප්ෂන් එක තෝරන්න:",
       done_btn: "ඩන්",
-      add_account: "ඇකවුන්ට් ඩිපොසිට්",
+      add_account: "නිව් වොලට් ඇඩ් කරන්න",
       switch_accounts: "චේන්ජ් ඇකවුන්ට්ස්"
     }
   };
@@ -95,17 +188,39 @@ document.addEventListener('DOMContentLoaded', () => {
     topup_wallet: "Top-up Wallet"
   };
 
+  function saveAccountsState() {
+    try {
+      localStorage.setItem('appSubAccountsData', JSON.stringify(subAccountsData));
+      localStorage.setItem('appCategoryTitles', JSON.stringify(categoryTitlesMap));
+      localStorage.setItem('appCatIcons', JSON.stringify(catIconMap));
+    } catch (e) {
+      console.warn('Could not save to localStorage', e);
+    }
+  }
+
+  function loadAccountsState() {
+    try {
+      const savedData = localStorage.getItem('appSubAccountsData');
+      const savedTitles = localStorage.getItem('appCategoryTitles');
+      const savedIcons = localStorage.getItem('appCatIcons');
+      if (savedData) subAccountsData = JSON.parse(savedData);
+      if (savedTitles) Object.assign(categoryTitlesMap, JSON.parse(savedTitles));
+      if (savedIcons) Object.assign(catIconMap, JSON.parse(savedIcons));
+    } catch (e) {
+      console.warn('Could not load from localStorage', e);
+    }
+  }
+  loadAccountsState();
+
   function applyLanguage(lang) {
     currentLang = lang;
     const t = translations[lang] || translations.en;
 
-    categoryTitlesMap = {
-      wallets: t.wallets,
-      bank_debit: t.bank_debit,
-      living_budget: t.living_budget,
-      custom: t.custom,
-      topup_wallet: t.topup_wallet
-    };
+    categoryTitlesMap.wallets = t.wallets;
+    categoryTitlesMap.bank_debit = t.bank_debit;
+    categoryTitlesMap.living_budget = t.living_budget;
+    categoryTitlesMap.custom = t.custom;
+    categoryTitlesMap.topup_wallet = t.topup_wallet;
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
@@ -120,42 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropdownCategoryTitle = document.getElementById('dropdownCategoryTitle');
     if (dropdownCategoryTitle) dropdownCategoryTitle.textContent = categoryTitlesMap[currentDropdownCategory] || t.wallets;
 
+    renderCategoryDropdownMenu();
     renderSubAccountCarousel();
   }
-
-  let subAccountsData = {
-    wallets: [
-      { id: "w1", title: "Main Cash Wallet", icon: "wallet", active: true, order: 0, balance: 185500.00, type: "cash_balance", subtitle: "Primary Liquid Cash" },
-      { id: "w2", title: "Budget for Wallet", icon: "pie-chart", active: true, order: 1, spent: 42000.00, limit: 60000.00, type: "budget_progress", subtitle: "Monthly Cash Budget" },
-      { id: "w3", title: "Loans (Cash Borrowed)", icon: "circle-dollar-sign", active: true, order: 2, balance: 25000.00, type: "loan", subtitle: "Borrowed Cash Outstanding" },
-      { id: "w4", title: "Someone's Money", icon: "users", active: true, order: 3, balance: 15000.00, type: "escrow", subtitle: "Third-Party Held Cash" },
-      { id: "w5", title: "Custom Sub-Wallet", icon: "sliders", active: false, order: 4, balance: 50000.00, type: "custom", tag: "Emergency Cash Vault" }
-    ],
-    bank_debit: [
-      { id: "b1", title: "Bank Accounts", icon: "landmark", active: true, order: 0, balance: 650200.00, type: "bank_balance", subtitle: "Commercial Bank Savings" },
-      { id: "b2", title: "Debit Cards", icon: "credit-card", active: true, order: 1, balance: 120000.00, type: "debit_card", subtitle: "Linked Debit Account" },
-      { id: "b3", title: "Credit Cards", icon: "credit-card", active: true, order: 2, limit: 300000.00, used: 45000.00, type: "credit_card", subtitle: "Visa Platinum Limit" },
-      { id: "b4", title: "Card/Bank Budget", icon: "pie-chart", active: true, order: 3, spent: 28000.00, limit: 50000.00, type: "budget_progress", subtitle: "Digital Spending Allocation" },
-      { id: "b5", title: "Loans", icon: "circle-dollar-sign", active: false, order: 4, balance: 150000.00, type: "loan", subtitle: "Bank Loan Balance" },
-      { id: "b6", title: "Someone's Money", icon: "users", active: false, order: 5, balance: 20000.00, type: "escrow", subtitle: "Escrow Bank Deposit" },
-      { id: "b7", title: "Custom Sub-Account", icon: "sliders", active: false, order: 6, balance: 75000.00, type: "custom", tag: "High-Yield Vault" }
-    ],
-    living_budget: [
-      { id: "lb1", title: "Wallet Budget", icon: "wallet", active: true, order: 0, spent: 45000.00, limit: 60000.00, type: "budget_progress", subtitle: "Cash Living Expense" },
-      { id: "lb2", title: "Bank/Debit Budget", icon: "landmark", active: true, order: 1, spent: 80000.00, limit: 120000.00, type: "budget_progress", subtitle: "Direct Debit Utilities" },
-      { id: "lb3", title: "Credit Card Budget", icon: "credit-card", active: true, order: 2, spent: 35000.00, limit: 50000.00, type: "budget_progress", subtitle: "Card Living Spend" },
-      { id: "lb4", title: "Loans Budget", icon: "circle-dollar-sign", active: false, order: 3, spent: 50000.00, limit: 75000.00, type: "budget_progress", subtitle: "Debt Repayment Allowance" },
-      { id: "lb5", title: "Custom Time-Range Budget", icon: "calendar", active: true, order: 4, type: "time_range", activeRange: "1 Month", ranges: { "1 Month": { spent: 145000.00, limit: 200000.00 }, "Multi-Month": { spent: 410000.00, limit: 600000.00 }, "1 Year": { spent: 1850000.00, limit: 2400000.00 } } }
-    ],
-    custom: [
-      { id: "c1", title: "Vault & Emergency Reserve", icon: "sliders", active: true, order: 0, balance: 520000.00, type: "custom", tag: "Yield: 11.5% p.a." },
-      { id: "c2", title: "Investment Reserve Goal", icon: "pie-chart", active: true, order: 1, spent: 520000.00, limit: 1000000.00, type: "budget_progress", subtitle: "52% Goal Reached" },
-      { id: "c3", title: "Secondary Savings Sub-Vault", icon: "wallet", active: false, order: 2, balance: 140000.00, type: "cash_balance", subtitle: "Fixed Deposit Reserve" }
-    ],
-    topup_wallet: [
-      { id: "t1", title: "Transit Card", icon: "bus", active: true, order: 0, balance: 1500.00, type: "cash_balance", subtitle: "Metro/Bus Wallet" }
-    ]
-  };
 
   // Cache UI Elements Safely
   const accountCategoryDropdownBtn = document.getElementById('accountCategoryDropdownBtn');
@@ -197,80 +279,92 @@ document.addEventListener('DOMContentLoaded', () => {
       accountCategoryDropdownMenu.classList.toggle('open');
     });
 
-    accountCategoryDropdownMenu.querySelectorAll('.dropdown-menu-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        accountCategoryDropdownMenu.querySelectorAll('.dropdown-menu-item').forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
+    renderCategoryDropdownMenu();
 
-        currentDropdownCategory = item.getAttribute('data-cat');
-        if (dropdownCategoryTitle) {
-          dropdownCategoryTitle.textContent = categoryTitlesMap[currentDropdownCategory] || "Wallets";
-        }
-
+    // Close wallet category dropdown when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+      if (!accountCategoryDropdownBtn.contains(e.target) && !accountCategoryDropdownMenu.contains(e.target)) {
         accountCategoryDropdownBtn.classList.remove('open');
         accountCategoryDropdownMenu.classList.remove('open');
-        activeSubAccountIndex = 0;
-        renderSubAccountCarousel();
-      });
+      }
     });
   }
 
-  // Close dropdown on outside click
-  document.addEventListener('click', () => {
-    accountCategoryDropdownBtn?.classList.remove('open');
-    accountCategoryDropdownMenu?.classList.remove('open');
-    infoTooltip?.classList.remove('show');
-  });
+  // --- 2. INFORMATION / HINT BUBBLE TOOLTIP ---
+  if (infoBubbleBtn && infoTooltip) {
+    infoBubbleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      infoTooltip.classList.toggle('visible');
+    });
 
-  // Tooltip dismissal safely
-  infoBubbleBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    infoTooltip?.classList.toggle('show');
-    if (tooltipTimeoutId) clearTimeout(tooltipTimeoutId);
-    if (infoTooltip?.classList.contains('show')) {
-      tooltipTimeoutId = setTimeout(() => {
-        infoTooltip?.classList.remove('show');
-      }, 5000);
-    }
-  });
+    document.addEventListener('click', (e) => {
+      if (!infoBubbleBtn.contains(e.target) && !infoTooltip.contains(e.target)) {
+        infoTooltip.classList.remove('visible');
+      }
+    });
+  }
 
-  // Balance Masking Toggle safely replacing innerHTML
-  maskToggleBtn?.addEventListener('click', () => {
-    isBalanceMasked = !isBalanceMasked;
-    maskToggleBtn.innerHTML = '<i data-lucide="' + (isBalanceMasked ? 'eye-off' : 'eye') + '" id="eyeIcon"></i>';
-    if (window.lucide) lucide.createIcons();
-    renderSubAccountCarousel();
-  });
+  // --- 3. EYE PRIVACY / BALANCE MASKING ENGINE ---
+  if (maskToggleBtn) {
+    maskToggleBtn.addEventListener('click', () => {
+      isBalanceMasked = !isBalanceMasked;
+      const eyeIcon = maskToggleBtn.querySelector('i');
+      if (eyeIcon) {
+        eyeIcon.setAttribute('data-lucide', isBalanceMasked ? 'eye-off' : 'eye');
+        if (window.lucide) lucide.createIcons();
+      }
+      renderSubAccountCarousel();
+    });
+  }
 
+  // Helper function to format currency
   function formatMoney(amount) {
-    if (isBalanceMasked) return "LKR ••••••";
-    return `LKR ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (isBalanceMasked) return "••••••";
+    return "LKR " + (parseFloat(amount) || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   }
 
   function getActiveSubAccounts() {
     const list = subAccountsData[currentDropdownCategory] || [];
-    return list.filter(acc => acc.active).sort((a, b) => a.order - b.order);
+    const activeList = list.filter(sub => sub.active !== false).sort((a, b) => a.order - b.order);
+    return activeList.length > 0 ? activeList : list.slice(0, 1);
   }
 
-  // --- 2. RENDER SWIPABLE CAROUSEL (ACTIVE "SHOWS LIST" ITEMS ONLY) ---
+  // --- 4. SUB-ACCOUNT CAROUSEL RENDERING ENGINE ---
   function renderSubAccountCarousel() {
     if (!cardCarouselSurface || !accountCardDots) return;
+
     cardCarouselSurface.innerHTML = '';
     accountCardDots.innerHTML = '';
 
     const activeSubAccounts = getActiveSubAccounts();
     if (activeSubAccounts.length === 0) {
-      cardCarouselSurface.innerHTML = `
-        <div class="account-card-view" style="text-align: center; padding: 24px;">
-          <p style="color: #64748b; font-weight: 600; font-size: 0.9rem;">No sub-accounts in "Shows List" for this category.</p>
-          <button class="primary-btn" id="manageSubAccsBtn" style="margin-top: 10px; width: 190px; height: 36px;">Manage Accounts</button>
+      const track = document.createElement('div');
+      track.className = 'carousel-track';
+      track.id = 'carouselTrack';
+
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'empty-card-view';
+      emptyCard.innerHTML = `
+        <div class="empty-card-inner open-add-sub-trigger">
+          <div class="empty-plus-circle">
+            <i data-lucide="plus"></i>
+          </div>
+          <h4 class="empty-card-title">Add Sub-Wallet</h4>
+          <p class="empty-card-sub">Tap + to create a sub-wallet under ${categoryTitlesMap[currentDropdownCategory] || 'Wallet'}</p>
         </div>
       `;
-      document.getElementById('manageSubAccsBtn')?.addEventListener('click', () => {
-        renderGlobalAccountsManager();
-        document.getElementById('globalAccountsModal')?.classList.add('active');
+      track.appendChild(emptyCard);
+      cardCarouselSurface.appendChild(track);
+
+      emptyCard.querySelector('.open-add-sub-trigger')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCreateSubAccountModal();
       });
+
+      if (window.lucide) lucide.createIcons();
       return;
     }
 
@@ -285,67 +379,30 @@ document.addEventListener('DOMContentLoaded', () => {
       cardEl.className = 'account-card-view';
 
       let bodyContent = '';
-
-      if (subAcc.type === 'cash_balance' || subAcc.type === 'bank_balance' || subAcc.type === 'debit_card' || subAcc.type === 'loan' || subAcc.type === 'escrow') {
+      if (subAcc.type === 'progress' || subAcc.type === 'budget_progress' || (subAcc.limit && subAcc.limit > 0)) {
+        const spentVal = subAcc.spent !== undefined ? subAcc.spent : 0;
+        const limitVal = subAcc.limit || 1;
+        const pct = Math.min(100, Math.round((spentVal / limitVal) * 100));
         bodyContent = `
           <div class="card-balance-header">
-            <span class="balance-label-sm">${subAcc.subtitle || 'Available Balance'}</span>
-            <div class="card-balance-display">${formatMoney(subAcc.balance)}</div>
+            <span class="balance-label-sm">${subAcc.subtitle || 'Spent Allocation'}</span>
+            <div class="card-balance-display">${formatMoney(spentVal)}</div>
           </div>
-          <div style="font-size: 0.74rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.4); padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: space-between;">
+          <div class="progress-bar-container">
+            <div class="progress-info-row">
+              <span>Limit: ${formatMoney(limitVal)}</span>
+              <span>${pct}% used</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill ${pct > 80 ? 'warning' : ''}" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+          <div class="category-option-capsule">
             <span>Category Option:</span>
-            <strong style="color: #0f172a;">${subAcc.title}</strong>
+            <strong class="opt-val">${subAcc.categoryOption || 'Tracking Wallet'}</strong>
           </div>
         `;
-      }
-      else if (subAcc.type === 'credit_card') {
-        const pct = Math.min(100, Math.round((subAcc.used / subAcc.limit) * 100));
-        bodyContent = `
-          <div class="card-balance-header">
-            <span class="balance-label-sm">Credit Line Used</span>
-            <div class="card-balance-display" style="color: #ef4444;">${formatMoney(subAcc.used)}</div>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-info-row">
-              <span>Card Limit: ${formatMoney(subAcc.limit)}</span>
-              <span>${pct}% used</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill ${pct > 80 ? 'warning' : ''}" style="width: ${pct}%;"></div>
-            </div>
-          </div>
-        `;
-      }
-      else if (subAcc.type === 'budget_progress') {
-        const pct = Math.min(100, Math.round((subAcc.spent / subAcc.limit) * 100));
-        bodyContent = `
-          <div class="card-balance-header">
-            <span class="balance-label-sm">Spent Allocation</span>
-            <div class="card-balance-display">${formatMoney(subAcc.spent)}</div>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-info-row">
-              <span>Limit: ${formatMoney(subAcc.limit)}</span>
-              <span>${pct}% used</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill ${pct > 80 ? 'warning' : ''}" style="width: ${pct}%;"></div>
-            </div>
-          </div>
-        `;
-      }
-      else if (subAcc.type === 'custom') {
-        bodyContent = `
-          <div class="card-balance-header">
-            <span class="balance-label-sm">Custom Reserve Balance</span>
-            <div class="card-balance-display">${formatMoney(subAcc.balance)}</div>
-          </div>
-          <div style="font-size: 0.74rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.4); padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5); display: flex; align-items: center; gap: 6px;">
-            <i data-lucide="tag" style="width: 12px; height: 12px;"></i> ${subAcc.tag || 'Custom Account Tag'}
-          </div>
-        `;
-      }
-      else if (subAcc.type === 'time_range') {
+      } else if (subAcc.type === 'time_range') {
         const currentData = subAcc.ranges[subAcc.activeRange];
         const pct = Math.min(100, Math.round((currentData.spent / currentData.limit) * 100));
         bodyContent = `
@@ -362,12 +419,16 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="progress-bar-container">
             <div class="progress-info-row">
-              <span>Budget Limit: ${formatMoney(currentData.limit)}</span>
+              <span>Limit: ${formatMoney(currentData.limit)}</span>
               <span>${pct}% used</span>
             </div>
             <div class="progress-track">
               <div class="progress-fill ${pct > 80 ? 'warning' : ''}" style="width: ${pct}%;"></div>
             </div>
+          </div>
+          <div class="category-option-capsule">
+            <span>Category Option:</span>
+            <strong class="opt-val">${subAcc.categoryOption || 'Tracking Wallet'}</strong>
           </div>
         `;
 
@@ -379,26 +440,54 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSubAccountCarousel();
           }
         });
+      } else {
+        bodyContent = `
+          <div class="card-balance-header">
+            <span class="balance-label-sm">${subAcc.subtitle || 'Primary Liquid Cash'}</span>
+            <div class="card-balance-display">${formatMoney(subAcc.balance || 0)}</div>
+          </div>
+          <div class="category-option-capsule">
+            <span>Category Option:</span>
+            <strong class="opt-val">${subAcc.categoryOption || 'Basic Wallet'}</strong>
+          </div>
+        `;
       }
 
       cardEl.innerHTML = `
         <div class="card-top-row">
           <div class="card-title-badge">
-            <i data-lucide="${subAcc.icon}"></i> ${subAcc.title}
+            <i data-lucide="${subAcc.icon}"></i>
+            <span>${subAcc.title}</span>
+            <button type="button" class="card-inline-edit open-edit-trigger" title="Edit Sub-Account">
+              <i data-lucide="edit-2"></i>
+            </button>
           </div>
-          <button class="card-corner-edit open-edit-trigger" title="Sub-Account Settings">
-            <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+          <button type="button" class="card-corner-add open-add-sub-trigger" title="Add Sub-Wallet">
+            <i data-lucide="plus"></i>
           </button>
         </div>
         ${bodyContent}
       `;
-
       track.appendChild(cardEl);
     });
 
     cardCarouselSurface.appendChild(track);
 
-    // Attach card corner edit trigger listener safely (Button 2: Sub-Account Settings)
+    // Render Dot Indicators
+    activeSubAccounts.forEach((_, idx) => {
+      const dot = document.createElement('span');
+      dot.className = `acc-dot ${idx === activeSubAccountIndex ? 'active' : ''}`;
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        activeSubAccountIndex = idx;
+        updateCarouselPosition();
+      });
+      accountCardDots.appendChild(dot);
+    });
+
+    updateCarouselPosition();
+
+    // Attach Edit Sub-Account trigger
     cardCarouselSurface.querySelectorAll('.open-edit-trigger').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -406,22 +495,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Render Sub-account Pagination Dots with Morphing Bouncy Pill
-    if (activeSubAccounts.length > 0) {
-      activeSubAccounts.forEach((subAcc, idx) => {
-        const dot = document.createElement('span');
-        dot.className = `acc-dot ${idx === activeSubAccountIndex ? 'active' : ''}`;
-        dot.addEventListener('click', () => {
-          activeSubAccountIndex = idx;
-          updateCarouselPosition();
-        });
-        accountCardDots.appendChild(dot);
+    // Attach Add Sub-Account trigger
+    cardCarouselSurface.querySelectorAll('.open-add-sub-trigger').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCreateSubAccountModal();
       });
-    }
+    });
 
-    updateCarouselPosition();
+    setupCardSwipeGestures();
     if (window.lucide) lucide.createIcons();
-    setupSwipeGestures();
   }
 
   function updateCarouselPosition() {
@@ -429,77 +512,85 @@ document.addEventListener('DOMContentLoaded', () => {
     if (track) {
       track.style.transform = `translateX(-${activeSubAccountIndex * 100}%)`;
     }
-
-    if (!accountCardDots) return;
-    const dots = accountCardDots.querySelectorAll('.acc-dot');
-    dots.forEach((dot, idx) => {
-      if (idx === activeSubAccountIndex) {
-        dot.classList.add('active');
-      } else {
-        dot.classList.remove('active');
-      }
+    const dots = accountCardDots?.querySelectorAll('.acc-dot');
+    dots?.forEach((d, i) => {
+      d.classList.toggle('active', i === activeSubAccountIndex);
     });
   }
 
-  // --- 3. SUB-ACCOUNT CAROUSEL SWIPE & ELASTIC BOUNCING PHYSICS ---
-  function setupSwipeGestures() {
-    if (!cardCarouselSurface) return;
-    const track = document.getElementById('carouselTrack');
-    if (!track) return;
+  let cardSwipeInitialized = false;
+  function setupCardSwipeGestures() {
+    if (!cardCarouselSurface || cardSwipeInitialized) return;
+    cardSwipeInitialized = true;
 
     let startX = 0;
+    let startY = 0;
     let currentX = 0;
-    let isDragging = false;
+    let currentY = 0;
+    let isSwiping = false;
 
-    function handleStart(clientX) {
-      startX = clientX;
-      currentX = clientX;
-      isDragging = true;
-      track.style.transition = 'none';
+    function onStart(x, y) {
+      startX = x;
+      startY = y;
+      currentX = x;
+      currentY = y;
+      isSwiping = true;
     }
 
-    function handleMove(clientX) {
-      if (!isDragging) return;
-      currentX = clientX;
-      let diffX = currentX - startX;
-      const activeSubAccounts = getActiveSubAccounts();
-      const cardWidth = cardCarouselSurface.clientWidth || 340;
-
-      if ((activeSubAccountIndex === 0 && diffX > 0) || 
-          (activeSubAccountIndex === activeSubAccounts.length - 1 && diffX < 0)) {
-        diffX = diffX * 0.3;
-      }
-
-      const baseOffset = -activeSubAccountIndex * cardWidth;
-      track.style.transform = `translateX(${baseOffset + diffX}px)`;
+    function onMove(x, y) {
+      if (!isSwiping) return;
+      currentX = x;
+      currentY = y;
     }
 
-    function handleEnd() {
-      if (!isDragging) return;
-      isDragging = false;
-      track.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    function onEnd() {
+      if (!isSwiping) return;
+      isSwiping = false;
       const diffX = currentX - startX;
-      const activeSubAccounts = getActiveSubAccounts();
+      const diffY = currentY - startY;
 
-      if (diffX < -45 && activeSubAccountIndex < activeSubAccounts.length - 1) {
-        activeSubAccountIndex++;
-      } else if (diffX > 45 && activeSubAccountIndex > 0) {
-        activeSubAccountIndex--;
+      // Only respond if the swipe is predominantly horizontal and passes threshold
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+        const activeCount = getActiveSubAccounts().length;
+        if (diffX < 0 && activeSubAccountIndex < activeCount - 1) {
+          activeSubAccountIndex++;
+          updateCarouselPosition();
+        } else if (diffX > 0 && activeSubAccountIndex > 0) {
+          activeSubAccountIndex--;
+          updateCarouselPosition();
+        }
       }
-      updateCarouselPosition();
-      startX = 0; currentX = 0;
     }
 
-    cardCarouselSurface.ontouchstart = (e) => handleStart(e.touches[0].clientX);
-    cardCarouselSurface.ontouchmove = (e) => handleMove(e.touches[0].clientX);
-    cardCarouselSurface.ontouchend = handleEnd;
+    // Touch events for mobile
+    cardCarouselSurface.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        onStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
 
-    cardCarouselSurface.onmousedown = (e) => handleStart(e.clientX);
-    cardCarouselSurface.onmousemove = (e) => handleMove(e.clientX);
-    cardCarouselSurface.onmouseup = cardCarouselSurface.onmouseleave = handleEnd;
+    cardCarouselSurface.addEventListener('touchmove', (e) => {
+      if (isSwiping && e.touches.length === 1) {
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    cardCarouselSurface.addEventListener('touchend', onEnd, { passive: true });
+    cardCarouselSurface.addEventListener('touchcancel', onEnd, { passive: true });
+
+    // Mouse events for desktop
+    cardCarouselSurface.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      onStart(e.clientX, e.clientY);
+    });
+    cardCarouselSurface.addEventListener('mousemove', (e) => {
+      onMove(e.clientX, e.clientY);
+    });
+    cardCarouselSurface.addEventListener('mouseup', onEnd);
+    cardCarouselSurface.addEventListener('mouseleave', onEnd);
   }
 
-  // --- 4. BUTTON 1: GLOBAL ACCOUNTS MANAGER MODAL (Collapsed Accordions & Inline Renaming) ---
+  // --- BUTTON 1: GLOBAL ACCOUNTS MANAGER (Edit Accounts Button) ---
   if (editAccountsBtn && globalAccountsModal) {
     editAccountsBtn.addEventListener('click', () => {
       renderGlobalAccountsManager();
@@ -513,13 +604,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   saveGlobalAccountsBtn?.addEventListener('click', () => {
     globalAccountsModal?.classList.remove('active');
+    renderCategoryDropdownMenu();
     renderSubAccountCarousel();
   });
 
   function renderGlobalAccountsManager() {
     if (!globalAccountsModalBody) return;
     globalAccountsModalBody.innerHTML = '';
-
     const catIcons = {
       wallets: "wallet",
       bank_debit: "credit-card",
@@ -528,16 +619,20 @@ document.addEventListener('DOMContentLoaded', () => {
       topup_wallet: "bus"
     };
 
-    Object.keys(subAccountsData).forEach(catKey => {
-      const subList = subAccountsData[catKey];
+    const catKeys = Object.keys(subAccountsData);
+
+    catKeys.forEach((catKey, catIdx) => {
+      const subList = subAccountsData[catKey] || [];
       const isCurrentCat = catKey === currentDropdownCategory;
 
       const accordion = document.createElement('div');
       accordion.className = `category-accordion ${isCurrentCat ? 'open' : ''}`;
+      accordion.setAttribute('data-cat-key', catKey);
 
       accordion.innerHTML = `
         <div class="accordion-header">
           <div class="accordion-header-left">
+            <span class="cat-drag-handle" title="Drag to reorder category"><i data-lucide="grip-vertical"></i></span>
             <i data-lucide="${catIcons[catKey] || 'folder'}"></i>
             <input type="text" class="rename-input-field cat-rename-input" data-cat="${catKey}" value="${categoryTitlesMap[catKey] || catKey}" title="Edit Main Account Title" />
           </div>
@@ -547,15 +642,20 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="accordion-body">
-          <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">Drag Handle to Reorder • Rename Inline • Toggle Visibility:</div>
+          <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">Drag Handle to Reorder • Rename Inline • Toggle Visibility • Delete:</div>
+          ${subList.length === 0 ? '<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:0.82rem;">No sub-wallets in this category.</div>' : ''}
           ${subList.map((subAcc) => `
-            <div class="acc-manage-row" draggable="true" data-id="${subAcc.id}" data-cat="${catKey}" style="padding:8px 12px; display:flex; align-items:center; gap:8px; touch-action:none;">
-              <i data-lucide="grip-vertical" class="drag-handle-btn" style="cursor: grab; color: #94a3b8; margin-right: 4px; touch-action: none;"></i>
+            <div class="acc-manage-row" draggable="true" data-id="${subAcc.id}" data-cat="${catKey}" style="padding:8px 12px; display:flex; align-items:center; gap:8px;">
+              <span class="drag-handle-btn" style="cursor: grab; color: #94a3b8; padding: 4px; touch-action: none;" title="Drag to reorder"><i data-lucide="grip-vertical"></i></span>
 
               <div class="acc-manage-info" style="flex:1; display:flex; align-items:center; gap:8px;">
-                <i data-lucide="${subAcc.icon}" style="color:${subAcc.active ? 'var(--accent-blue)' : '#64748b'};"></i>
+                <i data-lucide="${subAcc.icon}" style="color:${subAcc.active ? 'var(--accent-blue)' : '#64748b'}; width: 18px; height: 18px; flex-shrink: 0;"></i>
                 <input type="text" class="rename-input-field sub-rename-input" data-cat="${catKey}" data-id="${subAcc.id}" value="${subAcc.title}" title="Rename Sub-Account" />
               </div>
+
+              <button type="button" class="sub-delete-btn" data-cat="${catKey}" data-id="${subAcc.id}" title="Delete Wallet">
+                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+              </button>
 
               <label class="toggle-switch" title="Show / Hide in Main Carousel">
                 <input type="checkbox" class="global-visibility-check" data-cat="${catKey}" data-id="${subAcc.id}" ${subAcc.active ? 'checked' : ''}>
@@ -566,24 +666,16 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // 1. Exclusive Accordion Logic (Single Open at a Time)
+      // 1. Accordion Toggle Click
       const headerEl = accordion.querySelector('.accordion-header');
       headerEl?.addEventListener('click', (e) => {
-        if (e.target.classList.contains('cat-rename-input')) return;
+        if (e.target.classList.contains('cat-rename-input') || e.target.closest('.cat-drag-handle')) return;
         const isAlreadyOpen = accordion.classList.contains('open');
-
-        // Close all other accordions first
-        globalAccountsModalBody.querySelectorAll('.category-accordion').forEach(acc => {
-          acc.classList.remove('open');
-        });
-
-        // Toggle clicked accordion if it wasn't open
-        if (!isAlreadyOpen) {
-          accordion.classList.add('open');
-        }
+        globalAccountsModalBody.querySelectorAll('.category-accordion').forEach(acc => acc.classList.remove('open'));
+        if (!isAlreadyOpen) accordion.classList.add('open');
       });
 
-      // Main Category Rename Input Listener
+      // 2. Main Category Rename
       accordion.querySelector('.cat-rename-input')?.addEventListener('input', (e) => {
         const val = e.target.value;
         categoryTitlesMap[catKey] = val;
@@ -593,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSubAccountCarousel();
       });
 
-      // Sub-Account Rename Inputs Listener
+      // 3. Sub-Account Rename
       accordion.querySelectorAll('.sub-rename-input').forEach(subInput => {
         subInput.addEventListener('input', (e) => {
           const sid = subInput.getAttribute('data-id');
@@ -605,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // 2. Visibility Toggle Handler
+      // 4. Visibility Toggle
       accordion.querySelectorAll('.global-visibility-check').forEach(checkbox => {
         checkbox.addEventListener('change', (e) => {
           const sid = checkbox.getAttribute('data-id');
@@ -617,12 +709,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // 3. Desktop HTML5 Drag-and-Drop & Mobile Touch Drag Logic
+      // 5. Delete Sub-Wallet Option
+      accordion.querySelectorAll('.sub-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = btn.getAttribute('data-id');
+          const cat = btn.getAttribute('data-cat');
+          if (subAccountsData[cat]) {
+            subAccountsData[cat] = subAccountsData[cat].filter(s => s.id !== sid);
+            renderGlobalAccountsManager();
+            renderSubAccountCarousel();
+          }
+        });
+      });
+
+      // 6. Sub-Account Drag and Drop Reordering (Desktop + Mobile Touch)
       const accordionBody = accordion.querySelector('.accordion-body');
       const rows = accordion.querySelectorAll('.acc-manage-row');
 
       rows.forEach(row => {
-        // Desktop HTML5 Drag Handlers
         row.addEventListener('dragstart', (e) => {
           row.classList.add('dragging');
           e.dataTransfer.setData('text/plain', row.getAttribute('data-id'));
@@ -639,15 +744,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (draggingRow && draggingRow !== row) {
             const bounding = row.getBoundingClientRect();
             const offset = e.clientY - bounding.top - (bounding.height / 2);
-            if (offset > 0) {
-              accordionBody.insertBefore(draggingRow, row.nextSibling);
-            } else {
-              accordionBody.insertBefore(draggingRow, row);
-            }
+            if (offset > 0) accordionBody.insertBefore(draggingRow, row.nextSibling);
+            else accordionBody.insertBefore(draggingRow, row);
           }
         });
 
-        // Mobile Touch Event Mapping on Drag Handle
+        // Mobile Touch Drag on Handle
         const dragHandle = row.querySelector('.drag-handle-btn');
         if (dragHandle) {
           let isTouchDragging = false;
@@ -663,18 +765,13 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             const currentY = e.touches[0].clientY;
-            
             const elementUnderTouch = document.elementFromPoint(e.touches[0].clientX, currentY);
             const targetRow = elementUnderTouch?.closest('.acc-manage-row');
-
             if (targetRow && targetRow !== row && targetRow.parentNode === accordionBody) {
               const bounding = targetRow.getBoundingClientRect();
               const offset = currentY - bounding.top - (bounding.height / 2);
-              if (offset > 0) {
-                accordionBody.insertBefore(row, targetRow.nextSibling);
-              } else {
-                accordionBody.insertBefore(row, targetRow);
-              }
+              if (offset > 0) accordionBody.insertBefore(row, targetRow.nextSibling);
+              else accordionBody.insertBefore(row, targetRow);
             }
           }, { passive: false });
 
@@ -686,6 +783,39 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         }
       });
+
+      // 7. Main Category Accordion Drag and Drop Reordering
+      const catDragHandle = accordion.querySelector('.cat-drag-handle');
+      if (catDragHandle) {
+        let isCatTouchDragging = false;
+        catDragHandle.addEventListener('touchstart', (e) => {
+          e.stopPropagation();
+          isCatTouchDragging = true;
+          accordion.classList.add('dragging-cat');
+        }, { passive: false });
+
+        catDragHandle.addEventListener('touchmove', (e) => {
+          if (!isCatTouchDragging) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const currentY = e.touches[0].clientY;
+          const elementUnderTouch = document.elementFromPoint(e.touches[0].clientX, currentY);
+          const targetAcc = elementUnderTouch?.closest('.category-accordion');
+          if (targetAcc && targetAcc !== accordion && targetAcc.parentNode === globalAccountsModalBody) {
+            const bounding = targetAcc.getBoundingClientRect();
+            const offset = currentY - bounding.top - (bounding.height / 2);
+            if (offset > 0) globalAccountsModalBody.insertBefore(accordion, targetAcc.nextSibling);
+            else globalAccountsModalBody.insertBefore(accordion, targetAcc);
+          }
+        }, { passive: false });
+
+        catDragHandle.addEventListener('touchend', (e) => {
+          if (!isCatTouchDragging) return;
+          isCatTouchDragging = false;
+          accordion.classList.remove('dragging-cat');
+          updateCategoryOrderFromDOM();
+        });
+      }
 
       globalAccountsModalBody.appendChild(accordion);
     });
@@ -713,10 +843,37 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSubAccountCarousel();
   }
 
+  function updateCategoryOrderFromDOM() {
+    if (!globalAccountsModalBody) return;
+    const accordions = globalAccountsModalBody.querySelectorAll('.category-accordion');
+    const newSubAccountsData = {};
+    accordions.forEach(acc => {
+      const catKey = acc.getAttribute('data-cat-key');
+      if (catKey && subAccountsData[catKey]) {
+        newSubAccountsData[catKey] = subAccountsData[catKey];
+      }
+    });
+    Object.keys(subAccountsData).forEach(k => {
+      if (!newSubAccountsData[k]) newSubAccountsData[k] = subAccountsData[k];
+    });
+    subAccountsData = newSubAccountsData;
+    renderCategoryDropdownMenu();
+    renderSubAccountCarousel();
+  }
+
   // --- 5. BUTTON 2: SUB-ACCOUNT SETTINGS MODAL (Scoped strictly to currently visible card) ---
+  const subAccLimitToggle = document.getElementById('subAccLimitToggle');
+  const subAccLimitGroup = document.getElementById('subAccLimitGroup');
+
+  subAccLimitToggle?.addEventListener('change', (e) => {
+    if (subAccLimitGroup) subAccLimitGroup.style.display = e.target.checked ? 'block' : 'none';
+  });
+
   closeSubAccSettingsModal?.addEventListener('click', () => {
     subAccountSettingsModal?.classList.remove('active');
   });
+
+  let selectedEditSubAccIcon = 'wallet';
 
   function renderSubAccountSettings() {
     const activeSubAccounts = getActiveSubAccounts();
@@ -728,16 +885,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const subAccSettingsTitle = document.getElementById('subAccSettingsTitle');
     const subAccTitleInput = document.getElementById('subAccTitleInput');
     const subAccSubtitleInput = document.getElementById('subAccSubtitleInput');
-    const subAccBalanceInput = document.getElementById('subAccBalanceInput');
     const subAccLimitInput = document.getElementById('subAccLimitInput');
-    const subAccTagInput = document.getElementById('subAccTagInput');
+
+    const isProgress = (activeSubAcc.type === 'progress' || activeSubAcc.type === 'budget_progress' || (activeSubAcc.limit && activeSubAcc.limit > 0));
 
     if (subAccSettingsTitle) subAccSettingsTitle.textContent = `Settings: ${activeSubAcc.title}`;
     if (subAccTitleInput) subAccTitleInput.value = activeSubAcc.title || '';
     if (subAccSubtitleInput) subAccSubtitleInput.value = activeSubAcc.subtitle || '';
-    if (subAccBalanceInput) subAccBalanceInput.value = activeSubAcc.balance !== undefined ? activeSubAcc.balance : '';
-    if (subAccLimitInput) subAccLimitInput.value = activeSubAcc.limit !== undefined ? activeSubAcc.limit : (activeSubAcc.spent !== undefined ? activeSubAcc.spent : '');
-    if (subAccTagInput) subAccTagInput.value = activeSubAcc.tag || '';
+    if (subAccLimitToggle) subAccLimitToggle.checked = isProgress;
+    if (subAccLimitGroup) subAccLimitGroup.style.display = isProgress ? 'block' : 'none';
+    if (subAccLimitInput) subAccLimitInput.value = activeSubAcc.limit || 50000;
+
+    selectedEditSubAccIcon = activeSubAcc.icon || 'wallet';
+    setupIconSelector('editSubAccIconSelector', selectedEditSubAccIcon, (icon) => {
+      selectedEditSubAccIcon = icon;
+    });
 
     subAccountSettingsModal?.classList.add('active');
   }
@@ -749,22 +911,105 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeSubAcc) {
       const subAccTitleInput = document.getElementById('subAccTitleInput');
       const subAccSubtitleInput = document.getElementById('subAccSubtitleInput');
-      const subAccBalanceInput = document.getElementById('subAccBalanceInput');
       const subAccLimitInput = document.getElementById('subAccLimitInput');
-      const subAccTagInput = document.getElementById('subAccTagInput');
 
-      if (subAccTitleInput) activeSubAcc.title = subAccTitleInput.value;
-      if (subAccSubtitleInput) activeSubAcc.subtitle = subAccSubtitleInput.value;
-      if (activeSubAcc.balance !== undefined && subAccBalanceInput) activeSubAcc.balance = parseFloat(subAccBalanceInput.value) || 0;
-      if (activeSubAcc.spent !== undefined && subAccLimitInput) activeSubAcc.spent = parseFloat(subAccLimitInput.value) || 0;
-      if (activeSubAcc.limit !== undefined && subAccLimitInput) activeSubAcc.limit = parseFloat(subAccLimitInput.value) || 0;
-      if (activeSubAcc.tag !== undefined && subAccTagInput) activeSubAcc.tag = subAccTagInput.value;
+      if (subAccTitleInput) activeSubAcc.title = subAccTitleInput.value.trim();
+      if (subAccSubtitleInput) activeSubAcc.subtitle = subAccSubtitleInput.value.trim();
+      activeSubAcc.icon = selectedEditSubAccIcon;
+
+      if (subAccLimitToggle && subAccLimitToggle.checked) {
+        activeSubAcc.type = 'progress';
+        activeSubAcc.categoryOption = 'Tracking Wallet';
+        activeSubAcc.limit = parseFloat(subAccLimitInput?.value) || 50000;
+        if (activeSubAcc.spent === undefined) activeSubAcc.spent = 0.00;
+      } else {
+        activeSubAcc.type = 'basic';
+        activeSubAcc.categoryOption = 'Basic Wallet';
+        delete activeSubAcc.limit;
+      }
+      saveAccountsState();
     }
     subAccountSettingsModal?.classList.remove('active');
     renderSubAccountCarousel();
   });
 
-  // --- 6. "SWITCH ACCOUNTS" BUTTON: DISPLAY & VISIBILITY MANAGER MODAL (Show/Hide Toggles & Quick Jump) ---
+  // --- SUB-ACCOUNT CREATION ENGINE ---
+  const createSubAccountModal = document.getElementById('createSubAccountModal');
+  const closeCreateSubModal = document.getElementById('closeCreateSubModal');
+  const createSubAccountForm = document.getElementById('createSubAccountForm');
+  const newSubLimitToggle = document.getElementById('newSubLimitToggle');
+  const newSubLimitGroup = document.getElementById('newSubLimitGroup');
+  let selectedNewSubIcon = 'wallet';
+
+  function openCreateSubAccountModal() {
+    if (!createSubAccountModal) return;
+    const titleEl = document.getElementById('createSubModalTitle');
+    if (titleEl) {
+      titleEl.textContent = `New Sub-Wallet: ${categoryTitlesMap[currentDropdownCategory] || 'Wallet'}`;
+    }
+    const titleInput = document.getElementById('newSubTitle');
+    if (titleInput) {
+      titleInput.value = '';
+      setTimeout(() => titleInput.focus(), 80);
+    }
+    const subInput = document.getElementById('newSubSubtitle');
+    if (subInput) subInput.value = '';
+
+    if (newSubLimitToggle) newSubLimitToggle.checked = false;
+    if (newSubLimitGroup) newSubLimitGroup.style.display = 'none';
+
+    selectedNewSubIcon = 'wallet';
+    setupIconSelector('newSubIconSelector', 'wallet', (icon) => {
+      selectedNewSubIcon = icon;
+    });
+
+    createSubAccountModal.classList.add('active');
+  }
+
+  closeCreateSubModal?.addEventListener('click', () => {
+    createSubAccountModal?.classList.remove('active');
+  });
+
+  newSubLimitToggle?.addEventListener('change', (e) => {
+    if (newSubLimitGroup) newSubLimitGroup.style.display = e.target.checked ? 'block' : 'none';
+  });
+
+  createSubAccountForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const titleInput = document.getElementById('newSubTitle');
+    const subInput = document.getElementById('newSubSubtitle');
+    const limitInput = document.getElementById('newSubLimitInput');
+
+    const title = titleInput ? titleInput.value.trim() : '';
+    if (!title) return;
+
+    const isLimit = newSubLimitToggle ? newSubLimitToggle.checked : false;
+    const limitVal = parseFloat(limitInput?.value) || 50000;
+
+    const newSub = {
+      id: "sub_" + Date.now(),
+      title: title,
+      subtitle: subInput?.value.trim() || (isLimit ? "Spent Allocation" : "Primary Liquid Cash"),
+      icon: selectedNewSubIcon || "wallet",
+      active: true,
+      order: (subAccountsData[currentDropdownCategory] || []).length,
+      type: isLimit ? "progress" : "basic",
+      categoryOption: isLimit ? "Tracking Wallet" : "Basic Wallet",
+      ...(isLimit ? { limit: limitVal, spent: 0.00 } : { balance: 0.00 })
+    };
+
+    if (!subAccountsData[currentDropdownCategory]) {
+      subAccountsData[currentDropdownCategory] = [];
+    }
+    subAccountsData[currentDropdownCategory].push(newSub);
+    activeSubAccountIndex = subAccountsData[currentDropdownCategory].length - 1;
+
+    saveAccountsState();
+    createSubAccountModal?.classList.remove('active');
+    renderSubAccountCarousel();
+  });
+
+  // --- 6. SWITCH ACCOUNTS MODAL ---
   if (switchAccountsBtn && switchAccountsModal) {
     switchAccountsBtn.addEventListener('click', () => {
       renderVisibilityManager();
@@ -776,15 +1021,10 @@ document.addEventListener('DOMContentLoaded', () => {
     switchAccountsModal?.classList.remove('active');
   });
 
-  saveVisibilityBtn?.addEventListener('click', () => {
-    switchAccountsModal?.classList.remove('active');
-    renderSubAccountCarousel();
-  });
-
   function renderVisibilityManager() {
     if (!switchAccountsModalBody) return;
     switchAccountsModalBody.innerHTML = '';
-
+    
     const catIcons = {
       wallets: "wallet",
       bank_debit: "credit-card",
@@ -817,14 +1057,14 @@ document.addEventListener('DOMContentLoaded', () => {
           ${subList.map((subAcc) => `
             <div class="visibility-item-row">
               <div class="quick-jump-target" data-cat="${catKey}" data-id="${subAcc.id}" title="Quick Jump to ${subAcc.title}">
-                <i data-lucide="${subAcc.icon}" style="color:${subAcc.active ? 'var(--accent-blue)' : '#64748b'};"></i>
+                <i data-lucide="${subAcc.icon}" style="color:${subAcc.active ? 'var(--accent-blue)' : '#64748b'}; width: 18px; height: 18px;"></i>
                 <div>
                   <h5>${subAcc.title}</h5>
                   <p>${subAcc.subtitle || 'Sub-Account'}</p>
                 </div>
               </div>
               <label class="toggle-switch" title="Show / Hide in Carousel">
-                <input type="checkbox" class="visibility-toggle-check" data-cat="${catKey}" data-id="${subAcc.id}" ${subAcc.active ? 'checked' : ''}>
+                <input type="checkbox" class="vis-toggle-check" data-cat="${catKey}" data-id="${subAcc.id}" ${subAcc.active ? 'checked' : ''}>
                 <span class="slider"></span>
               </label>
             </div>
@@ -857,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      accordion.querySelectorAll('.visibility-toggle-check').forEach(checkbox => {
+      accordion.querySelectorAll('.vis-toggle-check').forEach(checkbox => {
         checkbox.addEventListener('change', (e) => {
           const sid = checkbox.getAttribute('data-id');
           const targetSub = subList.find(s => s.id === sid);
@@ -874,9 +1114,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) lucide.createIcons();
   }
 
-  // --- 7. ADD ACCOUNT FORM FLOW ---
+  // --- 7. ADD WALLET FORM FLOW ---
+  let selectedWalletIcon = 'wallet';
+
   addAccountBtn?.addEventListener('click', () => {
     addAccountModal?.classList.add('active');
+    const nameInput = document.getElementById('newAccName');
+    if (nameInput) {
+      nameInput.value = '';
+      setTimeout(() => nameInput.focus(), 80);
+    }
+    selectedWalletIcon = 'wallet';
+    setupIconSelector('walletIconSelector', 'wallet', (icon) => {
+      selectedWalletIcon = icon;
+    });
   });
 
   closeAddModal?.addEventListener('click', () => {
@@ -886,30 +1137,67 @@ document.addEventListener('DOMContentLoaded', () => {
   newAccountForm?.addEventListener('submit', (e) => {
     e.preventDefault();
     const nameInput = document.getElementById('newAccName');
-    const categoryInput = document.getElementById('newAccCategory');
-    const balanceInput = document.getElementById('newAccBalance');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) return;
 
-    const name = nameInput ? nameInput.value : 'New Account';
-    const category = categoryInput ? categoryInput.value : 'Cash';
-    const balance = balanceInput ? parseFloat(balanceInput.value) || 0 : 0;
+    const catKey = 'wallet_' + Date.now();
 
-    const newSubAcc = {
-      id: "custom_" + Date.now(),
-      title: name,
-      icon: "wallet",
-      active: true,
-      order: (subAccountsData[currentDropdownCategory] || []).length,
-      balance: balance,
-      type: "cash_balance",
-      subtitle: category
-    };
+    categoryTitlesMap[catKey] = name;
+    catIconMap[catKey] = selectedWalletIcon;
 
-    if (!subAccountsData[currentDropdownCategory]) subAccountsData[currentDropdownCategory] = [];
-    subAccountsData[currentDropdownCategory].push(newSubAcc);
+    // A newly created main wallet starts with an empty sub-wallet card area with the green '+' button!
+    subAccountsData[catKey] = [];
+    currentDropdownCategory = catKey;
+    activeSubAccountIndex = 0;
+
+    saveAccountsState();
+
     newAccountForm.reset();
+    selectedWalletIcon = 'wallet';
+
     addAccountModal?.classList.remove('active');
+    renderCategoryDropdownMenu();
     renderSubAccountCarousel();
+    renderAccountSelectorChips();
   });
+
+  // --- Dynamic Main Category Dropdown Generator (Renders in SS2 dropdown menu) ---
+  function renderCategoryDropdownMenu() {
+    if (!accountCategoryDropdownMenu) return;
+    accountCategoryDropdownMenu.innerHTML = '';
+
+    Object.keys(subAccountsData).forEach(catKey => {
+      const item = document.createElement('div');
+      item.className = `dropdown-menu-item ${catKey === currentDropdownCategory ? 'active' : ''}`;
+      item.setAttribute('data-cat', catKey);
+
+      const iconName = catIconMap[catKey] || (subAccountsData[catKey]?.[0]?.type === 'progress' ? 'pie-chart' : 'wallet');
+      const title = categoryTitlesMap[catKey] || catKey;
+
+      item.innerHTML = `<i data-lucide="${iconName}"></i> <span>${title}</span>`;
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentDropdownCategory = catKey;
+        if (dropdownCategoryTitle) {
+          dropdownCategoryTitle.textContent = categoryTitlesMap[currentDropdownCategory] || "Wallets";
+        }
+        accountCategoryDropdownBtn?.classList.remove('open');
+        accountCategoryDropdownMenu.classList.remove('open');
+        activeSubAccountIndex = 0;
+        renderCategoryDropdownMenu();
+        renderSubAccountCarousel();
+      });
+
+      accountCategoryDropdownMenu.appendChild(item);
+    });
+
+    if (dropdownCategoryTitle) {
+      dropdownCategoryTitle.textContent = categoryTitlesMap[currentDropdownCategory] || 'Wallets';
+    }
+
+    if (window.lucide) lucide.createIcons();
+  }
 
   // --- 8. MAIN SCREEN BODY SWIPER & NAVIGATION DOCK LOGIC ---
   let currentActiveTabIndex = 0;
@@ -928,20 +1216,17 @@ document.addEventListener('DOMContentLoaded', () => {
     navItems.forEach((item) => {
       const itemIndex = parseInt(item.getAttribute('data-tab'), 10);
       const glow = item.querySelector('.active-glow');
-      if (glow) glow.remove();
-
       if (itemIndex === currentActiveTabIndex) {
         item.classList.add('active');
-        const activeGlow = document.createElement('span');
-        activeGlow.className = 'active-glow';
-        item.appendChild(activeGlow);
+        if (glow) glow.style.opacity = '1';
       } else {
         item.classList.remove('active');
+        if (glow) glow.style.opacity = '0';
       }
     });
 
     if (swipeIndicator) {
-      swipeIndicator.innerHTML = '';
+      swipeIndicator.innerHTML = ''; // Clear before re-rendering indicators
       for (let i = 0; i < 4; i++) {
         const span = document.createElement('span');
         span.className = `indicator-item ${i === currentActiveTabIndex ? 'active-pill' : 'dot'}`;
@@ -960,12 +1245,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dark Theme Toggle safely
-  const themeCheckbox = document.getElementById('themeCheckbox');
-  themeCheckbox?.addEventListener('change', (e) => {
-    if (e.target.checked) document.documentElement.setAttribute('data-theme', 'dark');
-    else document.documentElement.removeAttribute('data-theme');
+  // --- 9. SYSTEM DEFAULT & 3-WAY THEME ENGINE ---
+  let currentThemeMode = localStorage.getItem('appThemeMode') || 'system';
+
+  function applyThemeMode(mode) {
+    currentThemeMode = mode;
+    localStorage.setItem('appThemeMode', mode);
+
+    const themeSegBtns = document.querySelectorAll('.theme-seg-btn');
+    themeSegBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-theme-mode') === mode);
+    });
+
+    const themeModeSubtext = document.getElementById('themeModeSubtext');
+    if (themeModeSubtext) {
+      if (mode === 'system') themeModeSubtext.textContent = 'System Auto (Default)';
+      else if (mode === 'dark') themeModeSubtext.textContent = 'Dark Mode Active';
+      else themeModeSubtext.textContent = 'Light Mode Active';
+    }
+
+    if (mode === 'system') {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark');
+      else document.documentElement.removeAttribute('data-theme');
+    } else if (mode === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Listen to OS Dark Mode Changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (currentThemeMode === 'system') {
+        if (e.matches) document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+      }
+    });
+  }
+
+  // Attach click listener on theme segmented pills
+  document.querySelectorAll('.theme-seg-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mode = btn.getAttribute('data-theme-mode');
+      applyThemeMode(mode);
+    });
   });
+
+  // Apply default on startup
+  applyThemeMode(currentThemeMode);
 
   // ==========================================================================
   // TRANSACTION AMOUNT CURRENCY FORMATTER (Decimal Lock & Cents Toggle)
@@ -1097,30 +1428,70 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   // QUICK ADD MODAL & TYPE HERE FOCUS ENGINE
   // ==========================================================================
-  const quickAddTrigger = document.getElementById('quickAddTrigger');
   const quickAddEmptyModal = document.getElementById('quickAddEmptyModal');
   const closeQuickAddEmptyBtn = document.getElementById('closeQuickAddEmptyBtn');
   const typeCapsule = document.querySelector('.type-input-capsule');
   const plusBtn = document.querySelector('.plus-btn');
 
+  // catIconMap is defined at the top of script.js
+
+  function renderAccountSelectorChips() {
+    const chipsContainer = document.getElementById('accountSelectorChips');
+    if (!chipsContainer) return;
+    chipsContainer.innerHTML = '';
+    let isFirst = true;
+    Object.keys(subAccountsData).forEach(catKey => {
+      const icon = catIconMap[catKey] || 'wallet';
+      const label = categoryTitlesMap[catKey] || catKey;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'acc-chip' + (isFirst ? ' active' : '');
+      chip.setAttribute('data-acc', catKey);
+      chip.innerHTML = `<i data-lucide="${icon}"></i> ${label}`;
+      chip.addEventListener('click', () => {
+        chipsContainer.querySelectorAll('.acc-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+      chipsContainer.appendChild(chip);
+      isFirst = false;
+    });
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function initDateTimeDefaults() {
+    const dateInput = document.getElementById('transactionDate');
+    const timeInput = document.getElementById('transactionTime');
+    if (!dateInput || !timeInput) return;
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+    timeInput.value = `${hh}:${min}`;
+  }
+
   function openQuickAddModal(autoFocus = false) {
     if (!quickAddEmptyModal) return;
+    // Reset form fields
+    if (transactionAmount) transactionAmount.value = '0.00';
+    const selCatText = document.getElementById('selectedCategoryText');
+    if (selCatText) selCatText.textContent = 'Select category';
+    document.getElementById('transactionNote') && (document.getElementById('transactionNote').value = '');
+    // Clear errors
+    quickAddEmptyModal.querySelectorAll('.field-error').forEach(el => el.remove());
+    quickAddEmptyModal.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    // Dynamic account chips
+    renderAccountSelectorChips();
+    // Set current date & time
+    initDateTimeDefaults();
     quickAddEmptyModal.classList.add('active');
     if (autoFocus && transactionAmount) {
-      transactionAmount.focus();
-      if (isDecimalLocked) {
-        positionCursorBeforeCents(transactionAmount);
-      } else {
-        transactionAmount.select();
-      }
       setTimeout(() => {
         transactionAmount.focus();
         if (isDecimalLocked) positionCursorBeforeCents(transactionAmount);
-      }, 50);
-      setTimeout(() => {
-        transactionAmount.focus();
-        if (isDecimalLocked) positionCursorBeforeCents(transactionAmount);
-      }, 150);
+      }, 60);
     }
   }
 
@@ -1139,6 +1510,65 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   closeQuickAddEmptyBtn?.addEventListener('click', () => {
+    quickAddEmptyModal?.classList.remove('active');
+  });
+
+  // ==========================================================================
+  // SAVE TRANSACTION FORM VALIDATION
+  // ==========================================================================
+  const quickAddForm = document.getElementById('quickAddForm');
+  quickAddForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    // Clear previous errors
+    quickAddForm.querySelectorAll('.field-error').forEach(el => el.remove());
+    quickAddForm.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    let isValid = true;
+
+    function showFieldError(anchorEl, msg) {
+      if (!anchorEl) return;
+      anchorEl.classList.add('input-error');
+      const errEl = document.createElement('span');
+      errEl.className = 'field-error';
+      errEl.textContent = msg;
+      anchorEl.parentNode.insertBefore(errEl, anchorEl.nextSibling);
+      isValid = false;
+    }
+
+    // 1. Amount must be > 0
+    const rawAmt = transactionAmount ? transactionAmount.value.replace(/,/g, '') : '0';
+    const numAmt = parseFloat(rawAmt);
+    if (!numAmt || numAmt <= 0) {
+      showFieldError(transactionAmount, 'Amount must be greater than 0');
+    }
+
+    // 2. Category must be selected
+    const catText = document.getElementById('selectedCategoryText');
+    const catBtn = document.getElementById('openCategoryModalBtn');
+    if (!catText || catText.textContent.trim() === 'Select category') {
+      showFieldError(catBtn, 'Please select a category');
+    }
+
+    // 3. Account chip must be selected
+    const activeChip = document.querySelector('#accountSelectorChips .acc-chip.active');
+    if (!activeChip) {
+      const chipsContainer = document.getElementById('accountSelectorChips');
+      const errEl = document.createElement('span');
+      errEl.className = 'field-error';
+      errEl.textContent = 'Please select an account';
+      if (chipsContainer) chipsContainer.after(errEl);
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    // All valid — save (console log for now, replace with real save later)
+    const selectedType = document.querySelector('.type-toggle-btn.active')?.getAttribute('data-type') || 'expense';
+    const selectedAcc = activeChip?.getAttribute('data-acc') || '';
+    const selectedCat = catText?.textContent || '';
+    const note = document.getElementById('transactionNote')?.value || '';
+    const dateVal = document.getElementById('transactionDate')?.value || '';
+    const timeVal = document.getElementById('transactionTime')?.value || '';
+    console.log('SAVE TRANSACTION:', { type: selectedType, account: selectedAcc, amount: numAmt, category: selectedCat, note, date: dateVal, time: timeVal });
     quickAddEmptyModal?.classList.remove('active');
   });
 
@@ -1338,15 +1768,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Quick Add Account Selector Chips Logic
-  const accChips = document.querySelectorAll('.acc-chip');
-  accChips.forEach(chip => {
-    chip?.addEventListener('click', (e) => {
-      accChips.forEach(c => c.classList.remove('active'));
-      const clickedBtn = e.target.closest('.acc-chip') || e.target;
-      clickedBtn.classList.add('active');
-    });
-  });
+  // Account chips are dynamically rendered by renderAccountSelectorChips() on modal open
 
   // ==========================================================================
   // UNIFIED TOUCH GESTURES: VERTICAL (Search / Report) & HORIZONTAL (Tabs)
@@ -1433,7 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (swipeSearchInput) {
               swipeSearchInput.focus();
               setTimeout(() => swipeSearchInput.focus(), 50);
-              setTimeout(() => swipeSearchInput.focus(), 150);
+              setTimeout(() => swipeSearchInput.focus(), 180);
             }
           }
         } else if (diffY > 40) {
@@ -1563,6 +1985,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial Boot Render
   applyLanguage("en");
+  setupIconSelector('walletIconSelector', 'wallet', (icon) => { selectedWalletIcon = icon; });
   updateTabNavigation(0);
   renderSubAccountCarousel();
   setupMainScreenGestures();

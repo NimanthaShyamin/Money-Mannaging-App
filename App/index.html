@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
 
@@ -532,9 +532,15 @@
         <div class="modal-body-scroll" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
            <i data-lucide="bar-chart-3" style="width: 54px; height: 54px; margin-bottom: 16px; opacity: 0.4; color: var(--accent-blue);"></i>
            <h4 style="color: var(--text-main); margin-bottom: 8px;">Financial Summary Report</h4>
-           <p style="font-size: 0.9rem;">Your monthly income vs outcome report will appear here.</p>
         </div>
       </div>
+    </div> <!-- Close reportSwipeModal -->
+
+    <!-- FLOATING UNDO TOAST (DIRECT CHILD OF DEVICE FRAME) -->
+    <div class="undo-toast" id="undoToast">
+      <i data-lucide="trash-2" style="width: 18px; height: 18px; color: #f87171; flex-shrink: 0;"></i>
+      <span class="undo-toast-text" id="undoToastText">Wallet deleted</span>
+      <button type="button" class="undo-toast-btn" id="undoToastBtn">Undo</button>
     </div>
 
   </div> <!-- End device-frame -->
@@ -594,7 +600,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=22"></script>
+  <script src="script.js?v=29"></script>
   <script>
     lucide.createIcons();
   </script>

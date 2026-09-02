@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: "b6", title: "Someone's Money", icon: "users", active: false, order: 5, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Escrow Bank Deposit" },
       { id: "b7", title: "Custom Sub-Account", icon: "sliders", active: false, order: 6, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "High-Yield Vault" }
     ],
+    topup_wallet: [
+      { id: "t1", title: "Transit Card", icon: "bus", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Metro/Bus Wallet" }
+    ],
     living_budget: [
       { id: "lb1", title: "Wallet Budget", icon: "wallet", active: true, order: 0, spent: 0.00, limit: 50000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Cash Living Expense" },
       { id: "lb2", title: "Bank/Debit Budget", icon: "landmark", active: true, order: 1, spent: 0.00, limit: 100000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Direct Debit Utilities" },
@@ -52,19 +55,20 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: "c1", title: "Vault & Emergency Reserve", icon: "sliders", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Yield: 11.5% p.a." },
       { id: "c2", title: "Investment Reserve Goal", icon: "pie-chart", active: true, order: 1, spent: 0.00, limit: 1000000.00, type: "progress", categoryOption: "Tracking Wallet", subtitle: "Goal Allocation" },
       { id: "c3", title: "Secondary Savings Sub-Vault", icon: "wallet", active: false, order: 2, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Fixed Deposit Reserve" }
-    ],
-    topup_wallet: [
-      { id: "t1", title: "Transit Card", icon: "bus", active: true, order: 0, balance: 0.00, type: "basic", categoryOption: "Basic Wallet", subtitle: "Metro/Bus Wallet" }
     ]
   };
 
   const catIconMap = {
     wallets: "wallet",
     bank_debit: "credit-card",
+    topup_wallet: "bus",
     living_budget: "pie-chart",
-    custom: "sliders",
-    topup_wallet: "bus"
+    custom: "sliders"
   };
+
+  const DEFAULT_CAT_ORDER = ["wallets", "bank_debit", "topup_wallet", "living_budget", "custom"];
+  const PROTECTED_CATEGORIES = ["wallets", "bank_debit", "topup_wallet"];
+  let categoryOrder = [...DEFAULT_CAT_ORDER];
 
   const AVAILABLE_ICONS = [
     { name: 'wallet', title: 'Wallet' },
@@ -183,9 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let categoryTitlesMap = {
     wallets: "Wallets",
     bank_debit: "Bank Accounts & Debit Cards",
+    topup_wallet: "Top-up Wallet",
     living_budget: "Living Budget",
-    custom: "Custom",
-    topup_wallet: "Top-up Wallet"
+    custom: "Custom"
   };
 
   function saveAccountsState() {
@@ -193,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('appSubAccountsData', JSON.stringify(subAccountsData));
       localStorage.setItem('appCategoryTitles', JSON.stringify(categoryTitlesMap));
       localStorage.setItem('appCatIcons', JSON.stringify(catIconMap));
+      localStorage.setItem('appCategoryOrder', JSON.stringify(categoryOrder));
     } catch (e) {
       console.warn('Could not save to localStorage', e);
     }
@@ -203,9 +208,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const savedData = localStorage.getItem('appSubAccountsData');
       const savedTitles = localStorage.getItem('appCategoryTitles');
       const savedIcons = localStorage.getItem('appCatIcons');
+      const savedOrder = localStorage.getItem('appCategoryOrder');
       if (savedData) subAccountsData = JSON.parse(savedData);
       if (savedTitles) Object.assign(categoryTitlesMap, JSON.parse(savedTitles));
       if (savedIcons) Object.assign(catIconMap, JSON.parse(savedIcons));
+      if (savedOrder) {
+        categoryOrder = JSON.parse(savedOrder);
+      } else {
+        categoryOrder = [...DEFAULT_CAT_ORDER];
+      }
     } catch (e) {
       console.warn('Could not load from localStorage', e);
     }
@@ -277,6 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       accountCategoryDropdownBtn.classList.toggle('open');
       accountCategoryDropdownMenu.classList.toggle('open');
+      document.querySelectorAll('.dropdown-item-wrapper').forEach(w => {
+        w.classList.remove('swiped');
+        const it = w.querySelector('.dropdown-menu-item');
+        if (it) it.style.transform = '';
+      });
     });
 
     renderCategoryDropdownMenu();
@@ -1147,6 +1163,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // A newly created main wallet starts with an empty sub-wallet card area with the green '+' button!
     subAccountsData[catKey] = [];
+    if (!categoryOrder.includes(catKey)) {
+      categoryOrder.push(catKey);
+    }
     currentDropdownCategory = catKey;
     activeSubAccountIndex = 0;
 
@@ -1161,22 +1180,272 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAccountSelectorChips();
   });
 
-  // --- Dynamic Main Category Dropdown Generator (Renders in SS2 dropdown menu) ---
+  // --- ORDER & UNDO TOAST MANAGEMENT ---
+  function getOrderedCategoryKeys() {
+    const dataKeys = Object.keys(subAccountsData);
+    let ordered = (categoryOrder || []).filter(k => dataKeys.includes(k));
+    dataKeys.forEach(k => {
+      if (!ordered.includes(k)) ordered.push(k);
+    });
+    return ordered;
+  }
+
+  let undoTimeout = null;
+  let deletedWalletBackup = null;
+
+  function showUndoToast(message, onUndo) {
+    const toast = document.getElementById('undoToast');
+    const textEl = document.getElementById('undoToastText');
+    const btnEl = document.getElementById('undoToastBtn');
+    if (!toast || !textEl || !btnEl) {
+      console.warn('Toast elements not found', { toast, textEl, btnEl });
+      return;
+    }
+
+    if (undoTimeout) clearTimeout(undoTimeout);
+
+    textEl.textContent = message;
+    toast.classList.add('show');
+    toast.style.setProperty('display', 'flex', 'important');
+    toast.style.setProperty('opacity', '1', 'important');
+    toast.style.setProperty('visibility', 'visible', 'important');
+    toast.style.setProperty('transform', 'translateX(-50%) translateY(0) rotate(0deg)', 'important');
+    toast.style.setProperty('transition', 'opacity 0.25s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)', 'important');
+    toast.style.setProperty('pointer-events', 'auto', 'important');
+    toast.style.setProperty('z-index', '999999', 'important');
+    if (window.lucide) lucide.createIcons();
+
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+
+    const handleUndoAction = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(undoTimeout);
+      hideUndoToast();
+      if (onUndo) onUndo();
+    };
+
+    btnEl.ontouchend = handleUndoAction;
+    btnEl.onclick = handleUndoAction;
+
+    undoTimeout = setTimeout(() => {
+      hideUndoToast();
+      deletedWalletBackup = null;
+    }, 6000);
+  }
+
+  function hideUndoToast() {
+    const toast = document.getElementById('undoToast');
+    if (!toast) return;
+    toast.classList.remove('show');
+    toast.style.setProperty('opacity', '0', 'important');
+    toast.style.setProperty('visibility', 'hidden', 'important');
+    toast.style.setProperty('transform', 'translateX(-50%) translateY(30px)', 'important');
+  }
+
+  // --- UNDO TOAST SWIPE-TO-DISMISS IN ANY DIRECTION ---
+  function setupUndoToastSwipe() {
+    const toast = document.getElementById('undoToast');
+    const btnEl = document.getElementById('undoToastBtn');
+    if (!toast) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let currentDeltaX = 0;
+    let currentDeltaY = 0;
+
+    function onStart(clientX, clientY, target) {
+      if (btnEl && (target === btnEl || btnEl.contains(target))) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      currentDeltaX = 0;
+      currentDeltaY = 0;
+      toast.style.transition = 'none';
+    }
+
+    function onMove(clientX, clientY) {
+      if (!isDragging) return;
+      currentDeltaX = clientX - startX;
+      currentDeltaY = clientY - startY;
+
+      const dist = Math.hypot(currentDeltaX, currentDeltaY);
+      const rotation = currentDeltaX * 0.08;
+      const opacity = Math.max(0.15, 1 - (dist / 160));
+
+      toast.style.transform = `translateX(calc(-50% + ${currentDeltaX}px)) translateY(${currentDeltaY}px) rotate(${rotation}deg)`;
+      toast.style.opacity = opacity;
+    }
+
+    function onEnd() {
+      if (!isDragging) return;
+      isDragging = false;
+
+      const dist = Math.hypot(currentDeltaX, currentDeltaY);
+      toast.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease';
+
+      // If swiped/flicked in any direction (threshold: 38px)
+      if (dist > 38) {
+        if (undoTimeout) clearTimeout(undoTimeout);
+        if (navigator.vibrate) navigator.vibrate(25);
+
+        // Throw direction animation
+        if (Math.abs(currentDeltaX) > Math.abs(currentDeltaY)) {
+          // Horizontal fling left or right
+          const throwX = currentDeltaX > 0 ? '160%' : '-200%';
+          const rot = currentDeltaX > 0 ? 22 : -22;
+          toast.style.transform = `translateX(${throwX}) translateY(${currentDeltaY}px) rotate(${rot}deg)`;
+        } else {
+          // Vertical fling up or down
+          const throwY = currentDeltaY > 0 ? 140 : -110;
+          toast.style.transform = `translateX(calc(-50% + ${currentDeltaX}px)) translateY(${throwY}px) scale(0.85)`;
+        }
+        toast.style.opacity = '0';
+
+        setTimeout(() => {
+          hideUndoToast();
+          deletedWalletBackup = null;
+        }, 260);
+      } else {
+        // Snap back cleanly to center
+        toast.style.transform = 'translateX(-50%) translateY(0) rotate(0deg)';
+        toast.style.opacity = '1';
+      }
+    }
+
+    // Touch events for mobile
+    toast.addEventListener('touchstart', (e) => {
+      onStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+    }, { passive: true });
+
+    toast.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    toast.addEventListener('touchend', onEnd);
+    toast.addEventListener('touchcancel', onEnd);
+
+    // Mouse events for desktop
+    toast.addEventListener('mousedown', (e) => {
+      onStart(e.clientX, e.clientY, e.target);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) onMove(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) onEnd();
+    });
+  }
+  setupUndoToastSwipe();
+
+  function deleteMainWallet(catKey) {
+    if (PROTECTED_CATEGORIES.includes(catKey)) return;
+
+    const title = categoryTitlesMap[catKey] || 'Wallet';
+    const subList = subAccountsData[catKey] || [];
+    const icon = catIconMap[catKey] || 'wallet';
+    const orderIndex = categoryOrder.indexOf(catKey);
+
+    // Save full backup for undo
+    deletedWalletBackup = {
+      catKey,
+      title,
+      icon,
+      subList: JSON.parse(JSON.stringify(subList)),
+      orderIndex: orderIndex >= 0 ? orderIndex : categoryOrder.length
+    };
+
+    // Remove from live collections
+    delete subAccountsData[catKey];
+    delete categoryTitlesMap[catKey];
+    delete catIconMap[catKey];
+    categoryOrder = categoryOrder.filter(k => k !== catKey);
+
+    // Close dropdown menu so the user sees the main view and the undo toast immediately!
+    accountCategoryDropdownBtn?.classList.remove('open');
+    accountCategoryDropdownMenu?.classList.remove('open');
+
+    // If currently viewing deleted wallet, switch to 'wallets'
+    if (currentDropdownCategory === catKey) {
+      currentDropdownCategory = 'wallets';
+      activeSubAccountIndex = 0;
+    }
+
+    saveAccountsState();
+    renderCategoryDropdownMenu();
+    renderSubAccountCarousel();
+    renderAccountSelectorChips();
+
+    // Show undo toast
+    showUndoToast(`"${title}" deleted`, () => {
+      if (deletedWalletBackup && deletedWalletBackup.catKey === catKey) {
+        subAccountsData[catKey] = deletedWalletBackup.subList;
+        categoryTitlesMap[catKey] = deletedWalletBackup.title;
+        catIconMap[catKey] = deletedWalletBackup.icon;
+        categoryOrder.splice(deletedWalletBackup.orderIndex, 0, catKey);
+        currentDropdownCategory = catKey;
+        activeSubAccountIndex = 0;
+        saveAccountsState();
+        renderCategoryDropdownMenu();
+        renderSubAccountCarousel();
+        renderAccountSelectorChips();
+        deletedWalletBackup = null;
+      }
+    });
+  }
+
+  // --- Dynamic Main Category Dropdown Generator (Renders in SS2 dropdown menu with Tap & Hold Drag & Clean Swipe) ---
+  let draggedCatKey = null;
+
   function renderCategoryDropdownMenu() {
     if (!accountCategoryDropdownMenu) return;
     accountCategoryDropdownMenu.innerHTML = '';
 
-    Object.keys(subAccountsData).forEach(catKey => {
-      const item = document.createElement('div');
-      item.className = `dropdown-menu-item ${catKey === currentDropdownCategory ? 'active' : ''}`;
-      item.setAttribute('data-cat', catKey);
+    const orderedKeys = getOrderedCategoryKeys();
 
-      const iconName = catIconMap[catKey] || (subAccountsData[catKey]?.[0]?.type === 'progress' ? 'pie-chart' : 'wallet');
+    orderedKeys.forEach((catKey) => {
+      const isProtected = PROTECTED_CATEGORIES.includes(catKey);
+      const isCurrent = catKey === currentDropdownCategory;
       const title = categoryTitlesMap[catKey] || catKey;
+      const iconName = catIconMap[catKey] || (subAccountsData[catKey]?.[0]?.type === 'progress' ? 'pie-chart' : 'wallet');
 
-      item.innerHTML = `<i data-lucide="${iconName}"></i> <span>${title}</span>`;
+      const wrapper = document.createElement('div');
+      wrapper.className = `dropdown-item-wrapper ${isCurrent ? 'active-item' : ''}`;
+      wrapper.setAttribute('data-cat', catKey);
 
-      item.addEventListener('click', (e) => {
+      // Red Delete Button docked behind (only for non-protected categories)
+      let deleteBtnHtml = '';
+      if (!isProtected) {
+        deleteBtnHtml = `
+          <button type="button" class="dropdown-delete-action" title="Delete Wallet">
+            <i data-lucide="trash-2"></i>
+          </button>
+        `;
+      }
+
+      wrapper.innerHTML = `
+        ${deleteBtnHtml}
+        <div class="dropdown-menu-item ${isCurrent ? 'active' : ''}">
+          <i data-lucide="${iconName}"></i>
+          <span class="dropdown-item-title">${title}</span>
+        </div>
+      `;
+
+      const itemEl = wrapper.querySelector('.dropdown-menu-item');
+      const deleteBtn = wrapper.querySelector('.dropdown-delete-action');
+
+      // 1. Click to Select Wallet
+      itemEl.addEventListener('click', (e) => {
+        if (wrapper.classList.contains('swiped')) {
+          wrapper.classList.remove('swiped');
+          itemEl.style.transform = '';
+          return;
+        }
         e.stopPropagation();
         currentDropdownCategory = catKey;
         if (dropdownCategoryTitle) {
@@ -1189,7 +1458,186 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSubAccountCarousel();
       });
 
-      accountCategoryDropdownMenu.appendChild(item);
+      // 2. Delete Button Trigger (Direct pointer/touch/click bindings)
+      if (!isProtected && deleteBtn) {
+        let isDeleteTriggered = false;
+        const handleDeleteAction = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isDeleteTriggered) return;
+          isDeleteTriggered = true;
+          setTimeout(() => { isDeleteTriggered = false; }, 800);
+          deleteMainWallet(catKey);
+        };
+        deleteBtn.onpointerdown = (e) => e.stopPropagation();
+        deleteBtn.ontouchstart = (e) => e.stopPropagation();
+        deleteBtn.ontouchend = handleDeleteAction;
+        deleteBtn.onclick = handleDeleteAction;
+      }
+
+      // 3. Mobile Touch: Tap & Hold (Drag) + Swipe to Delete
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let longPressTimer = null;
+      let isLongPressed = false;
+      let isHorizontalSwipe = false;
+
+      wrapper.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isLongPressed = false;
+        isHorizontalSwipe = false;
+
+        longPressTimer = setTimeout(() => {
+          isLongPressed = true;
+          draggedCatKey = catKey;
+          wrapper.classList.add('dragging-active');
+          itemEl.style.transform = 'scale(1.05) translateY(-3px)';
+          if (navigator.vibrate) navigator.vibrate([40, 25]);
+        }, 280);
+      }, { passive: true });
+
+      wrapper.addEventListener('touchmove', (e) => {
+        const curX = e.touches[0].clientX;
+        const curY = e.touches[0].clientY;
+        const diffX = curX - touchStartX;
+        const diffY = curY - touchStartY;
+
+        // If finger moves before long press fires, cancel it
+        if (!isLongPressed && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
+          clearTimeout(longPressTimer);
+        }
+
+        // If Tap & Hold Drag Mode is active, physically move with finger!
+        if (isLongPressed) {
+          e.preventDefault();
+          const deltaY = curY - touchStartY;
+          itemEl.style.transform = `scale(1.05) translateY(${deltaY}px)`;
+
+          const targetEl = document.elementFromPoint(curX, curY);
+          const targetWrap = targetEl?.closest('.dropdown-item-wrapper');
+          document.querySelectorAll('.dropdown-item-wrapper').forEach(w => w.classList.remove('drop-target-indicator'));
+          if (targetWrap && targetWrap !== wrapper) {
+            targetWrap.classList.add('drop-target-indicator');
+          }
+          return;
+        }
+
+        // Swipe to Delete (only for non-protected, must be intentional left movement)
+        if (!isProtected && diffX < -12 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+          isHorizontalSwipe = true;
+          const move = Math.max(-60, diffX);
+          itemEl.style.transform = `translateX(${move}px)`;
+        }
+      }, { passive: false });
+
+      wrapper.addEventListener('touchend', (e) => {
+        clearTimeout(longPressTimer);
+
+        // Do not intercept if delete button itself was tapped
+        if (e.target.closest('.dropdown-delete-action')) return;
+
+        // If Dragging Mode was active:
+        if (isLongPressed) {
+          isLongPressed = false;
+          wrapper.classList.remove('dragging-active');
+          itemEl.style.transform = '';
+          const endX = e.changedTouches[0].clientX;
+          const endY = e.changedTouches[0].clientY;
+          const targetEl = document.elementFromPoint(endX, endY);
+          const targetWrap = targetEl?.closest('.dropdown-item-wrapper');
+          document.querySelectorAll('.dropdown-item-wrapper').forEach(w => w.classList.remove('drop-target-indicator'));
+
+          if (targetWrap && targetWrap !== wrapper) {
+            const targetKey = targetWrap.getAttribute('data-cat');
+            const fromIdx = categoryOrder.indexOf(catKey);
+            const toIdx = categoryOrder.indexOf(targetKey);
+            if (fromIdx >= 0 && toIdx >= 0) {
+              categoryOrder.splice(fromIdx, 1);
+              categoryOrder.splice(toIdx, 0, catKey);
+              saveAccountsState();
+              renderCategoryDropdownMenu();
+              return;
+            }
+          }
+          return;
+        }
+
+        // If Swipe was performed:
+        if (isHorizontalSwipe) {
+          const endX = e.changedTouches[0].clientX;
+          const diffX = endX - touchStartX;
+          if (diffX < -30) {
+            wrapper.classList.add('swiped');
+            itemEl.style.transform = 'translateX(-60px)';
+          } else {
+            wrapper.classList.remove('swiped');
+            itemEl.style.transform = '';
+          }
+          return;
+        }
+
+        // If tap occurred while already swiped, close it:
+        if (wrapper.classList.contains('swiped')) {
+          wrapper.classList.remove('swiped');
+          itemEl.style.transform = '';
+        }
+      });
+
+      // 4. Desktop Mouse Support for Drag & Drop
+      let mouseTimer = null;
+      wrapper.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        mouseTimer = setTimeout(() => {
+          wrapper.setAttribute('draggable', 'true');
+          wrapper.classList.add('dragging-active');
+          draggedCatKey = catKey;
+        }, 300);
+      });
+
+      wrapper.addEventListener('mouseup', () => {
+        clearTimeout(mouseTimer);
+        wrapper.classList.remove('dragging-active');
+      });
+
+      wrapper.addEventListener('dragstart', (e) => {
+        draggedCatKey = catKey;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', catKey);
+      });
+
+      wrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        wrapper.classList.add('drop-target-indicator');
+      });
+
+      wrapper.addEventListener('dragleave', () => {
+        wrapper.classList.remove('drop-target-indicator');
+      });
+
+      wrapper.addEventListener('dragend', () => {
+        wrapper.classList.remove('dragging-active', 'drop-target-indicator');
+        wrapper.removeAttribute('draggable');
+        draggedCatKey = null;
+      });
+
+      wrapper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrapper.classList.remove('drop-target-indicator');
+        wrapper.removeAttribute('draggable');
+        if (!draggedCatKey || draggedCatKey === catKey) return;
+
+        const fromIdx = categoryOrder.indexOf(draggedCatKey);
+        const toIdx = categoryOrder.indexOf(catKey);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          categoryOrder.splice(fromIdx, 1);
+          categoryOrder.splice(toIdx, 0, draggedCatKey);
+          saveAccountsState();
+          renderCategoryDropdownMenu();
+        }
+      });
+
+      accountCategoryDropdownMenu.appendChild(wrapper);
     });
 
     if (dropdownCategoryTitle) {

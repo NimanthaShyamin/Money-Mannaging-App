@@ -1654,16 +1654,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateTabNavigation(targetIndex) {
     currentActiveTabIndex = Math.max(0, Math.min(3, targetIndex));
-    if (currentActiveTabIndex === 1 && typeof renderTransactionsList === 'function') {
-      renderTransactionsList();
-    }
 
+    // 1. Immediately slide viewsSliderTrack without waiting or being blocked
     const viewsSliderTrack = document.getElementById('viewsSliderTrack');
     if (viewsSliderTrack) {
       viewsSliderTrack.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
       viewsSliderTrack.style.transform = `translateX(-${currentActiveTabIndex * 25}%)`;
     }
 
+    // 2. Sync active class on tab-view DOM elements
+    document.querySelectorAll('.tab-view').forEach((tv, idx) => {
+      tv.classList.toggle('active', idx === currentActiveTabIndex);
+    });
+
+    // 3. Sync dock navigation items
     navItems.forEach((item) => {
       const itemIndex = parseInt(item.getAttribute('data-tab'), 10);
       const glow = item.querySelector('.active-glow');
@@ -1676,14 +1680,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    // 4. Update swipe indicator pills
     if (swipeIndicator) {
-      swipeIndicator.innerHTML = ''; // Clear before re-rendering indicators
+      swipeIndicator.innerHTML = '';
       for (let i = 0; i < 4; i++) {
         const span = document.createElement('span');
         span.className = `indicator-item ${i === currentActiveTabIndex ? 'active-pill' : 'dot'}`;
         span.setAttribute('data-index', i);
         span.addEventListener('click', () => updateTabNavigation(i));
         swipeIndicator.appendChild(span);
+      }
+    }
+
+    // 5. If switching to Transactions tab (1), render transactions feed safely
+    if (currentActiveTabIndex === 1) {
+      try {
+        if (typeof renderTransactionsList === 'function') {
+          renderTransactionsList();
+        }
+      } catch (err) {
+        console.error('Error rendering transactions list:', err);
       }
     }
   }
@@ -2284,19 +2300,62 @@ document.addEventListener('DOMContentLoaded', () => {
     let touchCurrentY = 0;
     let isTouching = false;
     let gestureDirection = null; // 'horizontal' | 'vertical' | null
+    let touchStartScrollTop = 0;
+    let touchScrollContainer = null;
+    let isContainerScrollable = false;
+    let touchStartedAtTop = true;
+    let touchStartedAtBottom = true;
+
+    function getActiveScrollContainer(targetEl) {
+      if (!targetEl) return null;
+      // 1. Direct container or closest ancestor
+      const container = targetEl.closest('.home-scroll-container, .transactions-scroll-container, .profile-scroll-container, [data-scrollable]');
+      if (container) return container;
+
+      // 2. Or check active tab view's scroll container
+      const activeTabEl = document.getElementById(`tab-view-${currentActiveTabIndex}`);
+      if (activeTabEl) {
+        return activeTabEl.querySelector('.home-scroll-container, .transactions-scroll-container, .profile-scroll-container');
+      }
+      return null;
+    }
 
     function onTouchStart(clientX, clientY, targetEl) {
-      // Ignore gesture if inside any active modal, menu, or interactive element
-      if (targetEl.closest('.full-modal-overlay.active') || targetEl.closest('.dropdown-menu-card') || targetEl.closest('.dock-wrapper') || targetEl.closest('.card-carousel-surface')) {
+      // Ignore gesture if inside any active modal, menu, dock, card-carousel, or interactive controls
+      if (targetEl.closest('.full-modal-overlay.active') || 
+          targetEl.closest('.dropdown-menu-card') || 
+          targetEl.closest('.dock-wrapper') || 
+          targetEl.closest('.card-carousel-surface') ||
+          targetEl.closest('input, textarea, select, button, .acc-chip, .tx-delete-btn, .lang-option-card, .wallet-icon-option')) {
         return;
       }
+
       touchStartX = clientX;
       touchStartY = clientY;
       touchCurrentX = clientX;
       touchCurrentY = clientY;
       isTouching = true;
       gestureDirection = null;
-      viewsSliderTrack.style.transition = 'none';
+
+      const container = getActiveScrollContainer(targetEl);
+      if (container) {
+        touchScrollContainer = container;
+        touchStartScrollTop = container.scrollTop;
+        const scrollGap = container.scrollHeight - container.clientHeight;
+        // Container is scrollable if content overflows client height by more than 8px
+        isContainerScrollable = scrollGap > 8;
+        // Check boundary status at the very moment touch began
+        touchStartedAtTop = isContainerScrollable ? (touchStartScrollTop <= 3) : true;
+        touchStartedAtBottom = isContainerScrollable ? (touchStartScrollTop + container.clientHeight >= container.scrollHeight - 6) : true;
+      } else {
+        touchScrollContainer = null;
+        touchStartScrollTop = 0;
+        isContainerScrollable = false;
+        touchStartedAtTop = true;
+        touchStartedAtBottom = true;
+      }
+      // Note: Do NOT alter viewsSliderTrack.style.transition on touchstart!
+      // This preserves hardware-accelerated momentum scrolling on vertical lists.
     }
 
     function onTouchMove(clientX, clientY) {
@@ -2306,27 +2365,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const diffX = touchCurrentX - touchStartX;
       const diffY = touchCurrentY - touchStartY;
+      const absX = Math.abs(diffX);
+      const absY = Math.abs(diffY);
 
-      // Determine direction once moved past 8px
-      if (gestureDirection === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
-        if (Math.abs(diffY) > Math.abs(diffX)) {
-          gestureDirection = 'vertical';
-        } else {
+      // Balanced direction locking
+      if (gestureDirection === null) {
+        if (absX > 14 && absX > absY * 1.2) {
           gestureDirection = 'horizontal';
+          viewsSliderTrack.style.transition = 'none';
+        } else if (absY > 14 && absY > absX * 1.2) {
+          gestureDirection = 'vertical';
         }
       }
 
-      // If horizontal, slide the tab track
+      // If horizontal, slide the tab track in real-time
       if (gestureDirection === 'horizontal') {
         const screenWidth = viewsOverlay.clientWidth || 380;
         let adjustedDiffX = diffX;
         if ((currentActiveTabIndex === 0 && diffX > 0) || (currentActiveTabIndex === 3 && diffX < 0)) {
-          adjustedDiffX = diffX * 0.35;
+          adjustedDiffX = diffX * 0.35; // Resistance at boundaries
         }
         const baseOffsetPct = -currentActiveTabIndex * 25;
         const diffPct = (adjustedDiffX / screenWidth) * 25;
         viewsSliderTrack.style.transform = `translateX(${baseOffsetPct + diffPct}%)`;
       }
+      // If vertical, leave native vertical scrolling intact
     }
 
     function onTouchEnd() {
@@ -2334,30 +2397,11 @@ document.addEventListener('DOMContentLoaded', () => {
       isTouching = false;
       const diffX = touchCurrentX - touchStartX;
       const diffY = touchCurrentY - touchStartY;
+      const absX = Math.abs(diffX);
+      const absY = Math.abs(diffY);
 
-      if (gestureDirection === 'vertical') {
-        viewsSliderTrack.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)';
-        viewsSliderTrack.style.transform = `translateX(${-currentActiveTabIndex * 25}%)`;
-
-        if (diffY < -40) {
-          // SWIPE UP -> Open Search
-          if (searchSwipeModal) {
-            searchSwipeModal.classList.add('active');
-            if (swipeSearchInput) {
-              swipeSearchInput.focus();
-              setTimeout(() => swipeSearchInput.focus(), 50);
-              setTimeout(() => swipeSearchInput.focus(), 180);
-            }
-          }
-        } else if (diffY > 40) {
-          // SWIPE DOWN -> Open Money Report
-          if (reportSwipeModal) {
-            reportSwipeModal.classList.add('active');
-            if (typeof renderMoneyReport === 'function') renderMoneyReport();
-          }
-        }
-      } else if (gestureDirection === 'horizontal') {
-        // Horizontal tab switch
+      if (gestureDirection === 'horizontal') {
+        // Horizontal tab switch with spring transition
         viewsSliderTrack.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         if (diffX < -50 && currentActiveTabIndex < 3) {
           updateTabNavigation(currentActiveTabIndex + 1);
@@ -2366,14 +2410,44 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           updateTabNavigation(currentActiveTabIndex);
         }
-      } else {
-        viewsSliderTrack.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        viewsSliderTrack.style.transform = `translateX(${-currentActiveTabIndex * 25}%)`;
+      } else if (gestureDirection === 'vertical') {
+        const currentScrollTop = touchScrollContainer ? touchScrollContainer.scrollTop : 0;
+        const currentAtTop = !touchScrollContainer || currentScrollTop <= 3;
+        const currentAtBottom = !touchScrollContainer || (
+          touchScrollContainer.scrollTop + touchScrollContainer.clientHeight >= touchScrollContainer.scrollHeight - 8
+        );
+
+        const isMostlyVertical = absY > absX * 1.2;
+        const isHomeTab = currentActiveTabIndex === 0;
+
+        // SWIPE DOWN (diffY > 60) -> OPEN SEARCH
+        // Triggers on Home tab (non-scrollable), unscrollable containers, or when at the top edge
+        if (isMostlyVertical && diffY > 60 && (isHomeTab || !isContainerScrollable || (touchStartedAtTop && currentAtTop))) {
+          if (searchSwipeModal) {
+            searchSwipeModal.classList.add('active');
+            if (swipeSearchInput) {
+              swipeSearchInput.focus();
+              setTimeout(() => swipeSearchInput.focus(), 80);
+            }
+          }
+        }
+        // SWIPE UP (diffY < -60) -> OPEN MONEY REPORT
+        // Triggers on Home tab (non-scrollable), unscrollable containers, or when reached bottom edge
+        else if (isMostlyVertical && diffY < -60 && (isHomeTab || !isContainerScrollable || (touchStartedAtBottom && currentAtBottom))) {
+          if (reportSwipeModal) {
+            reportSwipeModal.classList.add('active');
+            if (typeof renderMoneyReport === 'function') renderMoneyReport();
+          }
+        }
       }
 
       touchStartX = 0; touchStartY = 0;
       touchCurrentX = 0; touchCurrentY = 0;
       gestureDirection = null;
+      touchScrollContainer = null;
+      isContainerScrollable = false;
+      touchStartedAtTop = true;
+      touchStartedAtBottom = true;
     }
 
     viewsOverlay.addEventListener('touchstart', (e) => {
@@ -2391,7 +2465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewsOverlay.addEventListener('touchend', onTouchEnd, { passive: true });
     viewsOverlay.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
-    // Also support mouse for testing
+    // Also support mouse for desktop testing
     viewsOverlay.addEventListener('mousedown', (e) => onTouchStart(e.clientX, e.clientY, e.target));
     viewsOverlay.addEventListener('mousemove', (e) => onTouchMove(e.clientX, e.clientY));
     viewsOverlay.addEventListener('mouseup', onTouchEnd);
@@ -2407,11 +2481,25 @@ document.addEventListener('DOMContentLoaded', () => {
       let mStartY = 0;
       let mStartX = 0;
       let mTouching = false;
+      let mStartScrollTop = 0;
+      let startedOnHeader = false;
 
       modal.addEventListener('touchstart', (e) => {
-        // Don't intercept if scrolling inside a scrolled list unless at top
-        const scrollBody = e.target.closest('.modal-body-scroll');
-        if (scrollBody && scrollBody.scrollTop > 5) return;
+        if (e.touches.length !== 1) return;
+
+        // Check if touch started on top bar or handle
+        const headerEl = e.target.closest('.modal-top-bar, .modal-sheet-handle');
+        startedOnHeader = !!headerEl;
+
+        const scrollBody = modal.querySelector('.modal-body-scroll') || e.target.closest('.modal-body-scroll');
+        mStartScrollTop = scrollBody ? scrollBody.scrollTop : 0;
+
+        // If inside scroll body and NOT at the top edge (scrollTop > 2) and NOT on header:
+        // Do not intercept - let the user scroll up/down normally!
+        if (scrollBody && !startedOnHeader && mStartScrollTop > 2) {
+          mTouching = false;
+          return;
+        }
 
         mStartY = e.touches[0].clientY;
         mStartX = e.touches[0].clientX;
@@ -2424,16 +2512,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffY = e.changedTouches[0].clientY - mStartY;
         const diffX = e.changedTouches[0].clientX - mStartX;
 
-        // Check if swipe is mostly vertical
-        if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 40) {
-          if (diffY > 40) {
-            // Swiped DOWN -> Close modal
-            modal.classList.remove('active');
-          } else if (diffY < -40 && modal.id === 'reportSwipeModal') {
-            // Swiped UP on report modal -> Close report
-            modal.classList.remove('active');
-          }
+        const scrollBody = modal.querySelector('.modal-body-scroll') || e.target.closest('.modal-body-scroll');
+        const currentScrollTop = scrollBody ? scrollBody.scrollTop : 0;
+
+        // SWIPE DOWN TO GO BACK (diffY > 65):
+        // Triggers if:
+        // 1) Predominantly vertical downward pull (diffY > 65 and diffY > 1.3 * |diffX|)
+        // 2) AND EITHER:
+        //    a) Started on header / handle, OR
+        //    b) Started at top edge (mStartScrollTop <= 2) AND is still at top (currentScrollTop <= 2)
+        //       (meaning "after no more scrolling, end of scroll in edge of UI")
+        const isMostlyVertical = diffY > 65 && diffY > Math.abs(diffX) * 1.3;
+        const isAtTopEdge = startedOnHeader || (mStartScrollTop <= 2 && currentScrollTop <= 2);
+
+        if (isMostlyVertical && isAtTopEdge) {
+          modal.classList.remove('active');
         }
+
+        startedOnHeader = false;
+        mStartScrollTop = 0;
       }, { passive: true });
     });
   }
@@ -2445,12 +2542,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveLangBtn = document.getElementById('saveLangBtn');
   let selectedModalLang = "en";
 
+  function syncLanguageModalUI() {
+    selectedModalLang = currentLang || "en";
+    const cards = document.querySelectorAll('.lang-option-card');
+    cards.forEach(card => {
+      const cardLang = card.getAttribute('data-lang');
+      const isActive = cardLang === selectedModalLang;
+      card.classList.toggle('active', isActive);
+      const icon = card.querySelector('.lang-check-icon');
+      if (icon) {
+        icon.style.color = isActive ? '#ffffff' : 'transparent';
+      }
+    });
+    if (window.lucide) lucide.createIcons();
+  }
+
   changeLangBtn?.addEventListener('click', () => {
+    syncLanguageModalUI();
     languageModal?.classList.add('active');
   });
 
   closeLangModal?.addEventListener('click', () => {
     languageModal?.classList.remove('active');
+  });
+
+  languageModal?.addEventListener('click', (e) => {
+    if (e.target === languageModal) {
+      languageModal.classList.remove('active');
+    }
   });
 
   const langOptionCards = document.querySelectorAll('.lang-option-card');
@@ -2459,11 +2578,11 @@ document.addEventListener('DOMContentLoaded', () => {
       langOptionCards.forEach(c => {
         c.classList.remove('active');
         const icon = c.querySelector('.lang-check-icon');
-        if (icon) icon.setAttribute('data-lucide', 'circle');
+        if (icon) icon.style.color = 'transparent';
       });
       card.classList.add('active');
       const icon = card.querySelector('.lang-check-icon');
-      if (icon) icon.setAttribute('data-lucide', 'check-circle-2');
+      if (icon) icon.style.color = '#ffffff';
 
       selectedModalLang = card.getAttribute('data-lang');
       if (window.lucide) lucide.createIcons();
@@ -2472,6 +2591,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   saveLangBtn?.addEventListener('click', () => {
     applyLanguage(selectedModalLang);
+    try {
+      localStorage.setItem('appLanguage', selectedModalLang);
+    } catch (e) {
+      console.warn('Could not save language to storage', e);
+    }
     languageModal?.classList.remove('active');
   });
 
@@ -3086,9 +3210,83 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (window.lucide) lucide.createIcons();
+    renderHomeRecentTransactions();
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function renderHomeRecentTransactions() {
+    const listEl = document.getElementById('homeRecentTxList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    // Sort transactions by date and time descending
+    const sorted = [...transactionsData].sort((a, b) => {
+      const dtA = new Date((a.date || '2026-01-01') + 'T' + (a.time || '12:00:00'));
+      const dtB = new Date((b.date || '2026-01-01') + 'T' + (b.time || '12:00:00'));
+      return dtB - dtA;
+    });
+
+    const recent = sorted.slice(0, 3);
+    if (recent.length === 0) {
+      listEl.innerHTML = `
+        <div class="home-recent-empty">
+          <p>No recent activity yet</p>
+        </div>
+      `;
+      return;
+    }
+
+    recent.forEach(tx => {
+      const item = document.createElement('div');
+      item.className = 'home-recent-item';
+      const isExp = tx.type === 'expense';
+      const sign = isExp ? '-' : '+';
+      const colorClass = isExp ? 'expense' : 'income';
+      const amtStr = `${sign} ${formatRawCurrency(tx.amount)}`;
+
+      item.innerHTML = `
+        <div class="tx-item-left">
+          <div class="tx-item-icon" style="background: ${tx.color || (isExp ? '#ef4444' : '#10b981')};">
+            <i data-lucide="${tx.icon || (isExp ? 'shopping-bag' : 'arrow-down-left')}"></i>
+          </div>
+          <div class="tx-item-info">
+            <h4 class="tx-item-category">${escapeHtml(tx.subCategory || tx.category || 'Transaction')}</h4>
+            <div class="tx-item-sub">
+              <span>${tx.date || ''}</span>
+              ${tx.note ? `<span class="tx-dot">•</span><span class="tx-note-preview">${escapeHtml(tx.note)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="tx-item-right" style="gap: 0;">
+          <span class="tx-amount ${colorClass}">${amtStr}</span>
+        </div>
+      `;
+
+      item.addEventListener('click', () => {
+        updateTabNavigation(1); // Navigate to full Transactions tab
+      });
+
+      listEl.appendChild(item);
+    });
+
+    if (window.lucide) lucide.createIcons();
   }
 
   function setupTransactionsTabEvents() {
+    // See all button on home recent card
+    document.getElementById('homeSeeAllTxBtn')?.addEventListener('click', () => {
+      updateTabNavigation(1);
+    });
+
     // Type filter pills
     const typePills = document.querySelectorAll('#txTypeFilterGroup .tx-filter-pill');
     typePills.forEach(pill => {
@@ -3837,16 +4035,71 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Boot Render
-  applyLanguage("en");
-  setupIconSelector('walletIconSelector', 'wallet', (icon) => { selectedWalletIcon = icon; });
-  loadTransactionsState();
-  setupTransactionsTabEvents();
-  setupMoneyReportEvents();
-  renderTransactionsList();
-  updateTabNavigation(0);
-  renderSubAccountCarousel();
-  setupMainScreenGestures();
-  setupModalSwipeToDismiss();
-  updateDecimalLockUI();
+  try {
+    const savedBootLang = localStorage.getItem('appLanguage') || "en";
+    applyLanguage(savedBootLang);
+  } catch (e) {
+    console.error('Error applying initial language:', e);
+  }
+
+  try {
+    setupIconSelector('walletIconSelector', 'wallet', (icon) => { selectedWalletIcon = icon; });
+  } catch (e) {
+    console.error('Error setting up icon selector:', e);
+  }
+
+  try {
+    loadTransactionsState();
+  } catch (e) {
+    console.error('Error loading transactions state:', e);
+  }
+
+  try {
+    setupTransactionsTabEvents();
+  } catch (e) {
+    console.error('Error setting up transactions tab events:', e);
+  }
+
+  try {
+    setupMoneyReportEvents();
+  } catch (e) {
+    console.error('Error setting up money report events:', e);
+  }
+
+  try {
+    renderTransactionsList();
+  } catch (e) {
+    console.error('Error in initial renderTransactionsList:', e);
+  }
+
+  try {
+    updateTabNavigation(0);
+  } catch (e) {
+    console.error('Error in initial updateTabNavigation:', e);
+  }
+
+  try {
+    renderSubAccountCarousel();
+  } catch (e) {
+    console.error('Error rendering subaccount carousel:', e);
+  }
+
+  try {
+    setupMainScreenGestures();
+  } catch (e) {
+    console.error('Error initializing main screen gestures:', e);
+  }
+
+  try {
+    setupModalSwipeToDismiss();
+  } catch (e) {
+    console.error('Error initializing modal swipe to dismiss:', e);
+  }
+
+  try {
+    updateDecimalLockUI();
+  } catch (e) {
+    console.error('Error updating decimal lock UI:', e);
+  }
 });
 

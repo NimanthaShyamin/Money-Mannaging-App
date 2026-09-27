@@ -103,6 +103,22 @@
 
             </div><!-- /TOP BALANCE HEADER WIDGET -->
 
+            <!-- RECENT TRANSACTIONS WIDGET (Compact, covers empty space, non-scrollable) -->
+            <div class="home-recent-card glass-card-widget" id="homeRecentTxCard">
+              <div class="home-recent-header">
+                <div class="home-recent-title-group">
+                  <i data-lucide="clock" class="home-recent-icon"></i>
+                  <h3 class="home-recent-title">Recent Transactions</h3>
+                </div>
+                <button type="button" class="home-recent-see-all" id="homeSeeAllTxBtn">
+                  See All <i data-lucide="chevron-right"></i>
+                </button>
+              </div>
+              <div class="home-recent-list" id="homeRecentTxList">
+                <!-- Dynamically populated with top 3 recent transactions -->
+              </div>
+            </div>
+
           </div>
         </div><!-- /TAB 0 HOME -->
 
@@ -777,66 +793,73 @@
       <button type="button" class="undo-toast-btn" id="undoToastBtn">Undo</button>
     </div>
 
-  </div> <!-- End device-frame -->
-  <!-- LIGHT LIQUID GLASS LANGUAGE SELECTION MODAL -->
-  <div class="full-modal-overlay" id="languageModal">
-    <div class="modal-backdrop"></div>
-    <div class="glass-modal-card">
-      <div class="modal-top-bar">
-        <h3 data-i18n="select_language_title">Select Language</h3>
-        <button class="close-modal-btn" id="closeLangModal">&times;</button>
-      </div>
-      <div class="modal-body-scroll">
-        <p style="font-size:0.82rem;color:#64748b;margin-bottom:12px;" data-i18n="select_language_sub">Choose your preferred app display language:</p>
-        
-        <div class="lang-options-group">
-          <!-- English Option -->
-          <div class="lang-option-card active" data-lang="en">
-            <div class="lang-option-left">
-              <span class="lang-flag">🇬🇧</span>
-              <div>
-                <h4>English</h4>
-                <p>Wallet • Transactions • Accounts</p>
-              </div>
-            </div>
-            <i data-lucide="check-circle-2" class="lang-check-icon"></i>
-          </div>
-
-          <!-- Sinhala Option -->
-          <div class="lang-option-card" data-lang="si">
-            <div class="lang-option-left">
-              <span class="lang-flag">🇱🇰</span>
-              <div>
-                <h4>සින්හල</h4>
-                <p>පසුම්බිය • ගනුදෙනු • ගිණුම්</p>
-              </div>
-            </div>
-            <i data-lucide="circle" class="lang-check-icon"></i>
-          </div>
-
-          <!-- Singlish Option -->
-          <div class="lang-option-card" data-lang="singlish">
-            <div class="lang-option-left">
-              <span class="lang-flag">💬</span>
-              <div>
-                <h4>සින්ග්ලිශ්</h4>
-                <p>පර්ස් එක • ට්‍රාන්ස්ඇක්ෂන් • ඇකවුන්ට්ස්</p>
-              </div>
-            </div>
-            <i data-lucide="circle" class="lang-check-icon"></i>
-          </div>
+    <!-- DEDICATED LANGUAGE SELECTION BOTTOM SHEET -->
+    <div class="full-modal-overlay" id="languageModal">
+      <div class="full-modal-content language-modal-sheet">
+        <div class="modal-sheet-handle"></div>
+        <div class="modal-top-bar">
+          <h3 data-i18n="select_language_title" style="font-weight: 700; font-size: 1.15rem;">Select Language</h3>
+          <button class="close-modal-btn" id="closeLangModal">&times;</button>
         </div>
+        <div class="modal-body-scroll" style="padding: 14px 20px; gap: 12px;">
+          <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 4px 0;" data-i18n="select_language_sub">Choose your preferred app display language:</p>
+          
+          <div class="lang-options-group">
+            <!-- English Option -->
+            <div class="lang-option-card active" data-lang="en">
+              <div class="lang-option-left">
+                <span class="lang-flag">🇬🇧</span>
+                <div>
+                  <h4>English</h4>
+                  <p>Wallet • Transactions • Accounts</p>
+                </div>
+              </div>
+              <div class="lang-check-bubble">
+                <i data-lucide="check" class="lang-check-icon"></i>
+              </div>
+            </div>
 
-      </div>
-      <div class="modal-footer-bar">
-        <button class="primary-btn" id="saveLangBtn" data-i18n="done_btn">Done</button>
+            <!-- Sinhala Option -->
+            <div class="lang-option-card" data-lang="si">
+              <div class="lang-option-left">
+                <span class="lang-flag">🇱🇰</span>
+                <div>
+                  <h4>සිංහල</h4>
+                  <p>පසුම්බිය • ගනුදෙනු • ගිණුම්</p>
+                </div>
+              </div>
+              <div class="lang-check-bubble">
+                <i data-lucide="check" class="lang-check-icon"></i>
+              </div>
+            </div>
+
+            <!-- Singlish Option -->
+            <div class="lang-option-card" data-lang="singlish">
+              <div class="lang-option-left">
+                <span class="lang-flag">💬</span>
+                <div>
+                  <h4>සිංග්ලිෂ්</h4>
+                  <p>පර්ස් එක • ට්‍රාන්ස්ඇක්ෂන් • ඇකවුන්ට්ස්</p>
+                </div>
+              </div>
+              <div class="lang-check-bubble">
+                <i data-lucide="check" class="lang-check-icon"></i>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer-bar" style="padding: 14px 20px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(15, 23, 42, 0.08);">
+          <button class="primary-btn" id="saveLangBtn" data-i18n="done_btn">Done</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="script.js?v=29"></script>
+  </div> <!-- End device-frame -->
+
+  <script src="script.js?v=35"></script>
   <script>
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
   </script>
 </body>
 </html>

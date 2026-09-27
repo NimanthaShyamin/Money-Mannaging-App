@@ -1654,6 +1654,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateTabNavigation(targetIndex) {
     currentActiveTabIndex = Math.max(0, Math.min(3, targetIndex));
+    if (currentActiveTabIndex === 1 && typeof renderTransactionsList === 'function') {
+      renderTransactionsList();
+    }
 
     const viewsSliderTrack = document.getElementById('viewsSliderTrack');
     if (viewsSliderTrack) {
@@ -1888,21 +1891,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!chipsContainer) return;
     chipsContainer.innerHTML = '';
     let isFirst = true;
+
+    // Show individual active sub-accounts
     Object.keys(subAccountsData).forEach(catKey => {
-      const icon = catIconMap[catKey] || 'wallet';
-      const label = categoryTitlesMap[catKey] || catKey;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'acc-chip' + (isFirst ? ' active' : '');
-      chip.setAttribute('data-acc', catKey);
-      chip.innerHTML = `<i data-lucide="${icon}"></i> ${label}`;
-      chip.addEventListener('click', () => {
-        chipsContainer.querySelectorAll('.acc-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-      });
-      chipsContainer.appendChild(chip);
-      isFirst = false;
+      const subList = subAccountsData[catKey] || [];
+      const activeSubs = subList.filter(s => s.active !== false);
+      if (activeSubs.length > 0) {
+        activeSubs.forEach(sub => {
+          const icon = sub.icon || catIconMap[catKey] || 'wallet';
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'acc-chip' + (isFirst ? ' active' : '');
+          chip.setAttribute('data-acc', sub.id);
+          chip.setAttribute('data-cat', catKey);
+          chip.setAttribute('data-title', sub.title);
+          chip.innerHTML = `<i data-lucide="${icon}"></i> ${sub.title}`;
+          chip.addEventListener('click', () => {
+            chipsContainer.querySelectorAll('.acc-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+          });
+          chipsContainer.appendChild(chip);
+          isFirst = false;
+        });
+      } else {
+        const icon = catIconMap[catKey] || 'wallet';
+        const label = categoryTitlesMap[catKey] || catKey;
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'acc-chip' + (isFirst ? ' active' : '');
+        chip.setAttribute('data-acc', catKey);
+        chip.setAttribute('data-cat', catKey);
+        chip.setAttribute('data-title', label);
+        chip.innerHTML = `<i data-lucide="${icon}"></i> ${label}`;
+        chip.addEventListener('click', () => {
+          chipsContainer.querySelectorAll('.acc-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+        });
+        chipsContainer.appendChild(chip);
+        isFirst = false;
+      }
     });
+
     if (window.lucide) lucide.createIcons();
   }
 
@@ -2009,14 +2038,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!isValid) return;
 
-    // All valid — save (console log for now, replace with real save later)
+    // All valid — create and record transaction
     const selectedType = document.querySelector('.type-toggle-btn.active')?.getAttribute('data-type') || 'expense';
     const selectedAcc = activeChip?.getAttribute('data-acc') || '';
-    const selectedCat = catText?.textContent || '';
+    const selectedAccCat = activeChip?.getAttribute('data-cat') || '';
+    const selectedAccTitle = activeChip?.getAttribute('data-title') || activeChip?.textContent?.trim() || 'Wallet';
+    const selectedCat = catText?.textContent || 'Other Expense';
     const note = document.getElementById('transactionNote')?.value || '';
     const dateVal = document.getElementById('transactionDate')?.value || '';
     const timeVal = document.getElementById('transactionTime')?.value || '';
-    console.log('SAVE TRANSACTION:', { type: selectedType, account: selectedAcc, amount: numAmt, category: selectedCat, note, date: dateVal, time: timeVal });
+
+    saveNewTransaction({
+      type: selectedType,
+      account: selectedAcc,
+      accountCat: selectedAccCat,
+      accountTitle: selectedAccTitle,
+      category: selectedCat,
+      note: note,
+      amount: numAmt,
+      date: dateVal,
+      time: timeVal
+    });
+
     quickAddEmptyModal?.classList.remove('active');
   });
 
@@ -2310,6 +2353,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // SWIPE DOWN -> Open Money Report
           if (reportSwipeModal) {
             reportSwipeModal.classList.add('active');
+            if (typeof renderMoneyReport === 'function') renderMoneyReport();
           }
         }
       } else if (gestureDirection === 'horizontal') {
@@ -2431,9 +2475,1374 @@ document.addEventListener('DOMContentLoaded', () => {
     languageModal?.classList.remove('active');
   });
 
+  // ==========================================================================
+  // TRANSACTIONS & MONEY REPORT ENGINE (PERSISTENCE, CHARTS & ANALYTICS)
+  // ==========================================================================
+  let transactionsData = [];
+
+  const SEED_TRANSACTIONS = [
+    {
+      id: "tx_seed_1",
+      type: "income",
+      account: "b1",
+      accountCat: "bank_debit",
+      accountName: "Commercial Bank Savings",
+      category: "Salary",
+      subCategory: "Monthly Net",
+      categoryIcon: "badge-dollar-sign",
+      categoryColor: "#10b981",
+      amount: 145000.00,
+      currency: "LKR",
+      note: "Monthly Salary Credited",
+      date: "2026-09-25",
+      time: "09:30",
+      timestamp: new Date("2026-09-25T09:30:00").getTime()
+    },
+    {
+      id: "tx_seed_2",
+      type: "expense",
+      account: "w1",
+      accountCat: "wallets",
+      accountName: "Main Cash Wallet",
+      category: "Food & Dining",
+      subCategory: "Groceries",
+      categoryIcon: "utensils",
+      categoryColor: "#10b981",
+      amount: 8450.00,
+      currency: "LKR",
+      note: "Keells Supermarket Weekly",
+      date: "2026-09-27",
+      time: "10:15",
+      timestamp: new Date("2026-09-27T10:15:00").getTime()
+    },
+    {
+      id: "tx_seed_3",
+      type: "expense",
+      account: "b2",
+      accountCat: "bank_debit",
+      accountName: "Debit Cards",
+      category: "Transportation",
+      subCategory: "Fuel",
+      categoryIcon: "car",
+      categoryColor: "#3b82f6",
+      amount: 5200.00,
+      currency: "LKR",
+      note: "Auto Fuel 95 Octane",
+      date: "2026-09-27",
+      time: "08:45",
+      timestamp: new Date("2026-09-27T08:45:00").getTime()
+    },
+    {
+      id: "tx_seed_4",
+      type: "expense",
+      account: "w1",
+      accountCat: "wallets",
+      accountName: "Main Cash Wallet",
+      category: "Food & Dining",
+      subCategory: "Coffee & Tea",
+      categoryIcon: "utensils",
+      categoryColor: "#10b981",
+      amount: 750.00,
+      currency: "LKR",
+      note: "Morning Artisan Latte",
+      date: "2026-09-26",
+      time: "11:20",
+      timestamp: new Date("2026-09-26T11:20:00").getTime()
+    },
+    {
+      id: "tx_seed_5",
+      type: "expense",
+      account: "b2",
+      accountCat: "bank_debit",
+      accountName: "Debit Cards",
+      category: "Shopping",
+      subCategory: "Clothes & Shoes",
+      categoryIcon: "shopping-bag",
+      categoryColor: "#06b6d4",
+      amount: 6800.00,
+      currency: "LKR",
+      note: "Weekend Casual Wear",
+      date: "2026-09-26",
+      time: "16:40",
+      timestamp: new Date("2026-09-26T16:40:00").getTime()
+    },
+    {
+      id: "tx_seed_6",
+      type: "expense",
+      account: "b1",
+      accountCat: "bank_debit",
+      accountName: "Commercial Bank Savings",
+      category: "Bills & Utilities",
+      subCategory: "Electricity",
+      categoryIcon: "zap",
+      categoryColor: "#8b5cf6",
+      amount: 7200.00,
+      currency: "LKR",
+      note: "CEB Electricity Bill",
+      date: "2026-09-24",
+      time: "14:10",
+      timestamp: new Date("2026-09-24T14:10:00").getTime()
+    },
+    {
+      id: "tx_seed_7",
+      type: "expense",
+      account: "t1",
+      accountCat: "topup_wallet",
+      accountName: "Transit Card",
+      category: "Transportation",
+      subCategory: "Train",
+      categoryIcon: "bus",
+      categoryColor: "#3b82f6",
+      amount: 450.00,
+      currency: "LKR",
+      note: "Express Commute Ticket",
+      date: "2026-09-24",
+      time: "07:50",
+      timestamp: new Date("2026-09-24T07:50:00").getTime()
+    },
+    {
+      id: "tx_seed_8",
+      type: "income",
+      account: "b1",
+      accountCat: "bank_debit",
+      accountName: "Commercial Bank Savings",
+      category: "Business / Freelance",
+      subCategory: "UI Consulting",
+      categoryIcon: "briefcase",
+      categoryColor: "#8b5cf6",
+      amount: 42000.00,
+      currency: "LKR",
+      note: "Mobile App Wireframing Payout",
+      date: "2026-09-22",
+      time: "15:30",
+      timestamp: new Date("2026-09-22T15:30:00").getTime()
+    },
+    {
+      id: "tx_seed_9",
+      type: "expense",
+      account: "w1",
+      accountCat: "wallets",
+      accountName: "Main Cash Wallet",
+      category: "Food & Dining",
+      subCategory: "Restaurant",
+      categoryIcon: "utensils",
+      categoryColor: "#10b981",
+      amount: 3850.00,
+      currency: "LKR",
+      note: "Family Dinner Outing",
+      date: "2026-09-21",
+      time: "20:00",
+      timestamp: new Date("2026-09-21T20:00:00").getTime()
+    },
+    {
+      id: "tx_seed_10",
+      type: "expense",
+      account: "b2",
+      accountCat: "bank_debit",
+      accountName: "Debit Cards",
+      category: "Health & Personal",
+      subCategory: "Pharmacy",
+      categoryIcon: "heart-pulse",
+      categoryColor: "#ec4899",
+      amount: 2400.00,
+      currency: "LKR",
+      note: "Vitamins and Supplements",
+      date: "2026-09-19",
+      time: "13:15",
+      timestamp: new Date("2026-09-19T13:15:00").getTime()
+    },
+    {
+      id: "tx_seed_11",
+      type: "expense",
+      account: "b1",
+      accountCat: "bank_debit",
+      accountName: "Commercial Bank Savings",
+      category: "Bills & Utilities",
+      subCategory: "Internet",
+      categoryIcon: "zap",
+      categoryColor: "#8b5cf6",
+      amount: 3600.00,
+      currency: "LKR",
+      note: "Fibre Broadband Monthly",
+      date: "2026-09-18",
+      time: "11:00",
+      timestamp: new Date("2026-09-18T11:00:00").getTime()
+    },
+    {
+      id: "tx_seed_12",
+      type: "expense",
+      account: "w1",
+      accountCat: "wallets",
+      accountName: "Main Cash Wallet",
+      category: "Transportation",
+      subCategory: "Pick me",
+      categoryIcon: "car",
+      categoryColor: "#3b82f6",
+      amount: 1100.00,
+      currency: "LKR",
+      note: "City Tuk Ride",
+      date: "2026-09-17",
+      time: "18:25",
+      timestamp: new Date("2026-09-17T18:25:00").getTime()
+    }
+  ];
+
+  function saveTransactionsState() {
+    try {
+      localStorage.setItem('appTransactionsData', JSON.stringify(transactionsData));
+    } catch (e) {
+      console.warn('Could not save transactions to localStorage', e);
+    }
+  }
+
+  function loadTransactionsState() {
+    try {
+      const saved = localStorage.getItem('appTransactionsData');
+      if (saved) {
+        transactionsData = JSON.parse(saved);
+      } else {
+        transactionsData = [...SEED_TRANSACTIONS];
+        saveTransactionsState();
+
+        // Seed positive starting balances if all accounts are 0
+        let needSeedBalance = false;
+        if (subAccountsData.wallets && subAccountsData.wallets[0] && subAccountsData.wallets[0].balance === 0) {
+          needSeedBalance = true;
+          subAccountsData.wallets[0].balance = 34500.00;
+        }
+        if (subAccountsData.bank_debit && subAccountsData.bank_debit[0] && subAccountsData.bank_debit[0].balance === 0) {
+          needSeedBalance = true;
+          subAccountsData.bank_debit[0].balance = 245000.00;
+        }
+        if (subAccountsData.bank_debit && subAccountsData.bank_debit[1] && subAccountsData.bank_debit[1].balance === 0) {
+          needSeedBalance = true;
+          subAccountsData.bank_debit[1].balance = 38200.00;
+        }
+        if (subAccountsData.topup_wallet && subAccountsData.topup_wallet[0] && subAccountsData.topup_wallet[0].balance === 0) {
+          needSeedBalance = true;
+          subAccountsData.topup_wallet[0].balance = 4800.00;
+        }
+        if (needSeedBalance) {
+          saveAccountsState();
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load transactions from localStorage', e);
+      transactionsData = [...SEED_TRANSACTIONS];
+    }
+  }
+
+  function findAccountObject(accIdOrCat) {
+    if (!accIdOrCat) return null;
+    for (const cat of Object.keys(subAccountsData)) {
+      const found = subAccountsData[cat].find(s => s.id === accIdOrCat);
+      if (found) return { sub: found, catKey: cat };
+    }
+    // Check if category key was provided
+    if (subAccountsData[accIdOrCat] && subAccountsData[accIdOrCat].length > 0) {
+      const active = subAccountsData[accIdOrCat].find(s => s.active !== false) || subAccountsData[accIdOrCat][0];
+      return { sub: active, catKey: accIdOrCat };
+    }
+    return null;
+  }
+
+  function parseCategoryInfo(catString, type = 'expense') {
+    const parts = catString.split(' - ');
+    const mainName = parts[0].trim();
+    const subName = parts[1] ? parts[1].trim() : '';
+
+    const allCats = [
+      ...(categoryData.outcome || []),
+      ...(categoryData.income || []),
+      ...(categoryData.transfer_out || []),
+      ...(categoryData.transfer_in || []),
+      ...(categoryData.lent || []),
+      ...(categoryData.borrowed || [])
+    ];
+
+    const match = allCats.find(c => c.name.toLowerCase() === mainName.toLowerCase());
+    return {
+      category: mainName,
+      subCategory: subName,
+      icon: match ? match.icon : (type === 'income' ? 'plus-circle' : 'receipt'),
+      color: match ? match.color : (type === 'income' ? '#10b981' : '#3b82f6')
+    };
+  }
+
+  function formatRawCurrency(amount) {
+    return 'LKR ' + (parseFloat(amount) || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  // --- SAVE NEW TRANSACTION ---
+  function saveNewTransaction(params) {
+    const { type, account, accountCat, accountTitle, category, note, amount, date, time } = params;
+    const catMeta = parseCategoryInfo(category, type);
+    const numAmt = parseFloat(amount) || 0;
+
+    const newTx = {
+      id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      type: type || 'expense',
+      account: account || 'w1',
+      accountCat: accountCat || 'wallets',
+      accountName: accountTitle || 'Wallet',
+      category: catMeta.category,
+      subCategory: catMeta.subCategory,
+      categoryIcon: catMeta.icon,
+      categoryColor: catMeta.color,
+      amount: numAmt,
+      currency: 'LKR',
+      note: note || catMeta.category,
+      date: date || new Date().toISOString().split('T')[0],
+      time: time || '12:00',
+      timestamp: new Date(`${date || new Date().toISOString().split('T')[0]}T${time || '12:00'}:00`).getTime()
+    };
+
+    // Update account balance
+    const accObj = findAccountObject(account);
+    if (accObj && accObj.sub) {
+      if (type === 'expense') {
+        if (accObj.sub.type === 'progress' || (accObj.sub.limit && accObj.sub.limit > 0)) {
+          accObj.sub.spent = (accObj.sub.spent || 0) + numAmt;
+        } else {
+          accObj.sub.balance = (accObj.sub.balance || 0) - numAmt;
+        }
+      } else if (type === 'income') {
+        if (accObj.sub.type === 'progress') {
+          accObj.sub.spent = Math.max(0, (accObj.sub.spent || 0) - numAmt);
+        } else {
+          accObj.sub.balance = (accObj.sub.balance || 0) + numAmt;
+        }
+      }
+      saveAccountsState();
+      renderSubAccountCarousel();
+    }
+
+    transactionsData.unshift(newTx);
+    saveTransactionsState();
+
+    renderTransactionsList();
+    if (document.getElementById('reportSwipeModal')?.classList.contains('active')) {
+      renderMoneyReport();
+    }
+
+    // Success Toast
+    const sign = type === 'income' ? '+' : '-';
+    showUndoToast(`Recorded: ${sign} ${formatRawCurrency(numAmt)} (${catMeta.category})`, () => {
+      deleteTransaction(newTx.id, false);
+    });
+  }
+
+  // --- DELETE TRANSACTION WITH BALANCE RESTORE ---
+  function deleteTransaction(txId, showToast = true) {
+    const txIndex = transactionsData.findIndex(t => t.id === txId);
+    if (txIndex === -1) return;
+
+    const removedTx = transactionsData[txIndex];
+    transactionsData.splice(txIndex, 1);
+    saveTransactionsState();
+
+    // Revert account balance change
+    const accObj = findAccountObject(removedTx.account);
+    if (accObj && accObj.sub) {
+      if (removedTx.type === 'expense') {
+        if (accObj.sub.type === 'progress') {
+          accObj.sub.spent = Math.max(0, (accObj.sub.spent || 0) - removedTx.amount);
+        } else {
+          accObj.sub.balance = (accObj.sub.balance || 0) + removedTx.amount;
+        }
+      } else if (removedTx.type === 'income') {
+        if (accObj.sub.type === 'progress') {
+          accObj.sub.spent = (accObj.sub.spent || 0) + removedTx.amount;
+        } else {
+          accObj.sub.balance = (accObj.sub.balance || 0) - removedTx.amount;
+        }
+      }
+      saveAccountsState();
+      renderSubAccountCarousel();
+    }
+
+    renderTransactionsList();
+    if (document.getElementById('reportSwipeModal')?.classList.contains('active')) {
+      renderMoneyReport();
+    }
+
+    if (showToast) {
+      showUndoToast(`Transaction deleted: ${formatRawCurrency(removedTx.amount)}`, () => {
+        // Undo delete: re-insert transaction
+        transactionsData.splice(txIndex, 0, removedTx);
+        saveTransactionsState();
+
+        if (accObj && accObj.sub) {
+          if (removedTx.type === 'expense') {
+            if (accObj.sub.type === 'progress') accObj.sub.spent = (accObj.sub.spent || 0) + removedTx.amount;
+            else accObj.sub.balance = (accObj.sub.balance || 0) - removedTx.amount;
+          } else if (removedTx.type === 'income') {
+            if (accObj.sub.type === 'progress') accObj.sub.spent = Math.max(0, (accObj.sub.spent || 0) - removedTx.amount);
+            else accObj.sub.balance = (accObj.sub.balance || 0) + removedTx.amount;
+          }
+          saveAccountsState();
+          renderSubAccountCarousel();
+        }
+
+        renderTransactionsList();
+        if (document.getElementById('reportSwipeModal')?.classList.contains('active')) {
+          renderMoneyReport();
+        }
+      });
+    }
+  }
+
+  // ==========================================================================
+  // TAB 1: TRANSACTION HISTORY LIST MODULE
+  // ==========================================================================
+  let txActiveTypeFilter = 'all'; // 'all', 'expense', 'income'
+  let txActivePeriodFilter = 'all'; // 'all', 'month', 'week', 'today'
+  let txSearchQuery = '';
+
+  function renderTransactionsList() {
+    const feedContainer = document.getElementById('txFeedContainer');
+    const emptyState = document.getElementById('txEmptyState');
+    const countBadge = document.getElementById('txCountBadge');
+    const summaryIncome = document.getElementById('txSummaryIncome');
+    const summaryExpense = document.getElementById('txSummaryExpense');
+    const summaryNet = document.getElementById('txSummaryNet');
+    const summaryPeriodLabel = document.getElementById('txSummaryPeriodLabel');
+
+    if (!feedContainer) return;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const curMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const oneWeekAgoMs = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+
+    // Filter transactions
+    const filtered = transactionsData.filter(tx => {
+      // 1. Type filter
+      if (txActiveTypeFilter !== 'all' && tx.type !== txActiveTypeFilter) return false;
+
+      // 2. Period filter
+      if (txActivePeriodFilter === 'today') {
+        if (tx.date !== todayStr) return false;
+      } else if (txActivePeriodFilter === 'week') {
+        const txMs = new Date(tx.date).getTime();
+        if (txMs < oneWeekAgoMs) return false;
+      } else if (txActivePeriodFilter === 'month') {
+        if (!tx.date.startsWith(curMonthPrefix)) return false;
+      }
+
+      // 3. Search filter
+      if (txSearchQuery.trim()) {
+        const q = txSearchQuery.toLowerCase();
+        const noteMatch = (tx.note || '').toLowerCase().includes(q);
+        const catMatch = (tx.category || '').toLowerCase().includes(q);
+        const subMatch = (tx.subCategory || '').toLowerCase().includes(q);
+        const accMatch = (tx.accountName || '').toLowerCase().includes(q);
+        const amtMatch = String(tx.amount).includes(q);
+        if (!noteMatch && !catMatch && !subMatch && !accMatch && !amtMatch) return false;
+      }
+
+      return true;
+    });
+
+    // Update count badge
+    if (countBadge) {
+      countBadge.textContent = `${filtered.length} record${filtered.length === 1 ? '' : 's'}`;
+    }
+
+    // Compute period summary totals
+    let periodIncome = 0;
+    let periodExpense = 0;
+    filtered.forEach(tx => {
+      if (tx.type === 'income') periodIncome += tx.amount;
+      else if (tx.type === 'expense') periodExpense += tx.amount;
+    });
+    const netTotal = periodIncome - periodExpense;
+
+    if (summaryIncome) summaryIncome.textContent = `+ ${formatRawCurrency(periodIncome)}`;
+    if (summaryExpense) summaryExpense.textContent = `- ${formatRawCurrency(periodExpense)}`;
+    if (summaryNet) {
+      summaryNet.textContent = `${netTotal >= 0 ? '+' : '-'} ${formatRawCurrency(Math.abs(netTotal))}`;
+      summaryNet.style.color = netTotal >= 0 ? '#10b981' : '#ef4444';
+    }
+    if (summaryPeriodLabel) {
+      if (txActivePeriodFilter === 'today') summaryPeriodLabel.textContent = "Today's Overview";
+      else if (txActivePeriodFilter === 'week') summaryPeriodLabel.textContent = "This Week's Overview";
+      else if (txActivePeriodFilter === 'month') summaryPeriodLabel.textContent = "This Month's Overview";
+      else summaryPeriodLabel.textContent = "All Time Overview";
+    }
+
+    // Render empty state or grouped feed
+    if (filtered.length === 0) {
+      feedContainer.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'block';
+      return;
+    }
+
+    feedContainer.style.display = 'flex';
+    if (emptyState) emptyState.style.display = 'none';
+    feedContainer.innerHTML = '';
+
+    // Group by date
+    const grouped = {};
+    filtered.forEach(tx => {
+      if (!grouped[tx.date]) grouped[tx.date] = [];
+      grouped[tx.date].push(tx);
+    });
+
+    const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+    sortedDates.forEach(dateStr => {
+      const dateTxs = grouped[dateStr];
+      const dateGroup = document.createElement('div');
+      dateGroup.className = 'tx-date-group';
+
+      // Format date label
+      let dateLabel = dateStr;
+      const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+      const yestStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+      
+      if (dateStr === todayStr) {
+        dateLabel = "Today";
+      } else if (dateStr === yestStr) {
+        dateLabel = "Yesterday";
+      } else {
+        try {
+          const dObj = new Date(dateStr + 'T12:00:00');
+          dateLabel = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (e) {
+          dateLabel = dateStr;
+        }
+      }
+
+      // Net daily sum
+      let dayExpense = 0;
+      let dayIncome = 0;
+      dateTxs.forEach(t => {
+        if (t.type === 'income') dayIncome += t.amount;
+        else dayExpense += t.amount;
+      });
+      const dayNet = dayIncome - dayExpense;
+      const dayNetFormatted = dayNet >= 0 
+        ? `+ ${formatRawCurrency(dayNet)}` 
+        : `- ${formatRawCurrency(Math.abs(dayNet))}`;
+
+      // Date Header
+      const headerEl = document.createElement('div');
+      headerEl.className = 'tx-date-header';
+      headerEl.innerHTML = `
+        <span class="tx-date-label">${dateLabel}</span>
+        <span class="tx-date-sum" style="color: ${dayNet >= 0 ? '#10b981' : '#ef4444'};">${dayNetFormatted}</span>
+      `;
+      dateGroup.appendChild(headerEl);
+
+      // Render Transaction Item Cards
+      dateTxs.forEach(tx => {
+        const itemCard = document.createElement('div');
+        itemCard.className = 'tx-item-card';
+
+        const isIncome = tx.type === 'income';
+        const sign = isIncome ? '+' : '-';
+        const colorClass = isIncome ? 'income' : 'expense';
+        const iconName = tx.categoryIcon || (isIncome ? 'plus-circle' : 'receipt');
+        const bgColor = tx.categoryColor || (isIncome ? '#10b981' : '#3b82f6');
+        const displayTitle = tx.subCategory ? `${tx.category} - ${tx.subCategory}` : tx.category;
+
+        itemCard.innerHTML = `
+          <div class="tx-item-left">
+            <div class="tx-cat-icon" style="background: ${bgColor};">
+              <i data-lucide="${iconName}"></i>
+            </div>
+            <div class="tx-item-info">
+              <span class="tx-item-title">${displayTitle}</span>
+              <div class="tx-item-meta">
+                <span class="tx-acc-tag">${tx.accountName || 'Wallet'}</span>
+                ${tx.note && tx.note !== tx.category ? `<span class="tx-note-text" title="${tx.note}">${tx.note}</span>` : ''}
+                <span class="tx-time-text">${tx.time || ''}</span>
+              </div>
+            </div>
+          </div>
+          <div class="tx-item-right">
+            <div class="tx-amount-wrap">
+              <span class="tx-amount ${colorClass}">${sign} ${formatRawCurrency(tx.amount)}</span>
+            </div>
+            <button type="button" class="tx-delete-btn" data-txid="${tx.id}" title="Delete transaction">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
+        `;
+
+        itemCard.querySelector('.tx-delete-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteTransaction(tx.id);
+        });
+
+        dateGroup.appendChild(itemCard);
+      });
+
+      feedContainer.appendChild(dateGroup);
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function setupTransactionsTabEvents() {
+    // Type filter pills
+    const typePills = document.querySelectorAll('#txTypeFilterGroup .tx-filter-pill');
+    typePills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        typePills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        txActiveTypeFilter = pill.getAttribute('data-type') || 'all';
+        renderTransactionsList();
+      });
+    });
+
+    // Period filter pills
+    const periodPills = document.querySelectorAll('#txPeriodFilterGroup .tx-period-pill');
+    periodPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        periodPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        txActivePeriodFilter = pill.getAttribute('data-period') || 'all';
+        renderTransactionsList();
+      });
+    });
+
+    // Search input
+    const searchInput = document.getElementById('txSearchInput');
+    const searchClear = document.getElementById('txSearchClearBtn');
+    searchInput?.addEventListener('input', (e) => {
+      txSearchQuery = e.target.value;
+      if (searchClear) searchClear.style.display = txSearchQuery ? 'flex' : 'none';
+      renderTransactionsList();
+    });
+
+    searchClear?.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      txSearchQuery = '';
+      searchClear.style.display = 'none';
+      renderTransactionsList();
+    });
+
+    // Top action: Open Money Report
+    const openReportBtn = document.getElementById('openReportFromTxBtn');
+    openReportBtn?.addEventListener('click', () => {
+      const modal = document.getElementById('reportSwipeModal');
+      if (modal) {
+        modal.classList.add('active');
+        renderMoneyReport();
+      }
+    });
+
+    // Add first transaction button
+    const addFirstBtn = document.getElementById('txAddFirstBtn');
+    addFirstBtn?.addEventListener('click', () => {
+      openQuickAddModal(false);
+    });
+  }
+
+  // ==========================================================================
+  // MONEY REPORT MODULE (PIE, BAR, LINE & CATEGORY COMPARISONS)
+  // ==========================================================================
+  let reportPeriodScope = 'month'; // 'month', 'week', 'year', 'all'
+  let reportCurrentDate = new Date(2026, 8, 27); // September 2026
+  let reportActiveFlow = 'expense'; // 'expense', 'income'
+  let reportActiveChart = 'pie'; // 'pie', 'bar', 'line', 'compare'
+  let reportBarMode = 'daily'; // 'daily', 'vs'
+
+  let pieChartInstance = null;
+  let barChartInstance = null;
+  let lineChartInstance = null;
+
+  function getReportPeriodDateRange() {
+    const y = reportCurrentDate.getFullYear();
+    const m = reportCurrentDate.getMonth();
+    const d = reportCurrentDate.getDate();
+
+    if (reportPeriodScope === 'month') {
+      const start = new Date(y, m, 1);
+      const end = new Date(y, m + 1, 0, 23, 59, 59);
+      const label = reportCurrentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return { start, end, label };
+    } else if (reportPeriodScope === 'week') {
+      const dayOfWeek = reportCurrentDate.getDay();
+      const diffToMonday = (dayOfWeek + 6) % 7;
+      const start = new Date(y, m, d - diffToMonday);
+      const end = new Date(y, m, d - diffToMonday + 6, 23, 59, 59);
+      const label = `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      return { start, end, label };
+    } else if (reportPeriodScope === 'year') {
+      const start = new Date(y, 0, 1);
+      const end = new Date(y, 11, 31, 23, 59, 59);
+      const label = `Year ${y}`;
+      return { start, end, label };
+    } else {
+      return {
+        start: new Date(2020, 0, 1),
+        end: new Date(2035, 11, 31),
+        label: "All Recorded Time"
+      };
+    }
+  }
+
+  function renderMoneyReport() {
+    const periodObj = getReportPeriodDateRange();
+    const periodLabelEl = document.getElementById('reportCurrentPeriodText');
+    if (periodLabelEl) periodLabelEl.textContent = periodObj.label;
+
+    // Filter transactions in range
+    const periodTxs = transactionsData.filter(tx => {
+      const txDate = new Date(tx.date + 'T12:00:00');
+      return txDate >= periodObj.start && txDate <= periodObj.end;
+    });
+
+    const flowTxs = periodTxs.filter(tx => tx.type === reportActiveFlow);
+    const totalFlowAmt = flowTxs.reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenseAll = periodTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const totalIncomeAll = periodTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const netSavings = totalIncomeAll - totalExpenseAll;
+    const savingsRate = totalIncomeAll > 0 ? Math.max(0, Math.round((netSavings / totalIncomeAll) * 100)) : 0;
+
+    // Days in period for daily average
+    let daysCount = 30;
+    if (reportPeriodScope === 'month') {
+      daysCount = new Date(reportCurrentDate.getFullYear(), reportCurrentDate.getMonth() + 1, 0).getDate();
+    } else if (reportPeriodScope === 'week') {
+      daysCount = 7;
+    } else if (reportPeriodScope === 'year') {
+      daysCount = 365;
+    }
+    const dailyAvg = totalFlowAmt / Math.max(1, daysCount);
+
+    // Group by category
+    const catMap = {};
+    flowTxs.forEach(t => {
+      if (!catMap[t.category]) {
+        catMap[t.category] = {
+          name: t.category,
+          icon: t.categoryIcon || 'tag',
+          color: t.categoryColor || '#3b82f6',
+          total: 0,
+          count: 0
+        };
+      }
+      catMap[t.category].total += t.amount;
+      catMap[t.category].count += 1;
+    });
+
+    const catList = Object.values(catMap).sort((a, b) => b.total - a.total);
+    const topCat = catList[0] || null;
+
+    // Update Summary Metrics
+    const totalSpentEl = document.getElementById('reportTotalSpent');
+    const txCountEl = document.getElementById('reportTxCount');
+    const dailyAvgEl = document.getElementById('reportDailyAvg');
+    const daysTrackedEl = document.getElementById('reportDaysTracked');
+    const topCatEl = document.getElementById('reportTopCategory');
+    const topCatPctEl = document.getElementById('reportTopCategoryPct');
+    const savingsRateEl = document.getElementById('reportSavingsRate');
+    const netSavingsEl = document.getElementById('reportNetSavings');
+
+    if (totalSpentEl) totalSpentEl.textContent = formatRawCurrency(totalFlowAmt);
+    if (txCountEl) txCountEl.textContent = `${flowTxs.length} transaction${flowTxs.length === 1 ? '' : 's'}`;
+    if (dailyAvgEl) dailyAvgEl.textContent = formatRawCurrency(dailyAvg) + ' / day';
+    if (daysTrackedEl) daysTrackedEl.textContent = `${daysCount} days in period`;
+
+    if (topCatEl) topCatEl.textContent = topCat ? topCat.name : 'None';
+    if (topCatPctEl) {
+      const pct = (topCat && totalFlowAmt > 0) ? ((topCat.total / totalFlowAmt) * 100).toFixed(1) : 0;
+      topCatPctEl.textContent = `${pct}% of total ${reportActiveFlow}`;
+    }
+
+    if (savingsRateEl) savingsRateEl.textContent = `${savingsRate}%`;
+    if (netSavingsEl) {
+      netSavingsEl.textContent = `${netSavings >= 0 ? '+' : '-'} ${formatRawCurrency(Math.abs(netSavings))}`;
+      netSavingsEl.style.color = netSavings >= 0 ? '#10b981' : '#ef4444';
+    }
+
+    // Render Charts
+    renderPieChart(catList, totalFlowAmt);
+    renderBarChart(periodObj, periodTxs, flowTxs);
+    renderLineChart(periodObj, flowTxs, totalFlowAmt);
+    renderCategoryComparisons(catList, totalFlowAmt);
+    renderCategoryBreakdownList(catList, totalFlowAmt);
+    renderSmartInsights(catList, totalFlowAmt, totalIncomeAll, totalExpenseAll, savingsRate);
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // --- PIE / DONUT CHART ---
+  function renderPieChart(catList, totalAmt) {
+    const canvas = document.getElementById('categoryPieCanvas');
+    const centerVal = document.getElementById('donutCenterVal');
+    if (centerVal) centerVal.textContent = formatRawCurrency(totalAmt);
+
+    if (!canvas) return;
+
+    if (pieChartInstance) {
+      pieChartInstance.destroy();
+      pieChartInstance = null;
+    }
+
+    if (catList.length === 0 || totalAmt <= 0) {
+      // Draw empty placeholder donut
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (window.Chart) {
+        pieChartInstance = new Chart(canvas, {
+          type: 'doughnut',
+          data: {
+            labels: ['No Data'],
+            datasets: [{
+              data: [1],
+              backgroundColor: ['rgba(148, 163, 184, 0.2)'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+          }
+        });
+      }
+      return;
+    }
+
+    const labels = catList.map(c => c.name);
+    const dataVals = catList.map(c => c.total);
+    const colors = catList.map(c => c.color || '#3b82f6');
+
+    if (window.Chart) {
+      pieChartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataVals,
+            backgroundColor: colors,
+            borderWidth: 3,
+            borderColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          animation: {
+            animateScale: true,
+            animateRotate: true,
+            duration: 800
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              titleFont: { family: 'Inter', size: 13, weight: '700' },
+              bodyFont: { family: 'Inter', size: 12 },
+              padding: 10,
+              cornerRadius: 10,
+              callbacks: {
+                label: function(context) {
+                  const val = context.raw || 0;
+                  const pct = ((val / totalAmt) * 100).toFixed(1);
+                  return ` ${formatRawCurrency(val)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // --- BAR CHART ---
+  function renderBarChart(periodObj, periodTxs, flowTxs) {
+    const canvas = document.getElementById('timelineBarCanvas');
+    if (!canvas) return;
+
+    if (barChartInstance) {
+      barChartInstance.destroy();
+      barChartInstance = null;
+    }
+
+    if (!window.Chart) return;
+
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.06)';
+
+    if (reportBarMode === 'daily') {
+      // Daily spending distribution in selected period
+      const y = reportCurrentDate.getFullYear();
+      const m = reportCurrentDate.getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+      const labels = [];
+      const dataVals = [];
+      const bgColors = [];
+
+      let peakVal = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        labels.push(day % 3 === 0 || day === 1 || day === daysInMonth ? String(day) : '');
+        const dayTotal = flowTxs.filter(t => t.date === dayStr).reduce((sum, t) => sum + t.amount, 0);
+        dataVals.push(dayTotal);
+        if (dayTotal > peakVal) peakVal = dayTotal;
+      }
+
+      // Highlight peak day
+      dataVals.forEach(val => {
+        if (val > 0 && val === peakVal) {
+          bgColors.push(reportActiveFlow === 'income' ? '#10b981' : '#ef4444');
+        } else {
+          bgColors.push(reportActiveFlow === 'income' ? 'rgba(16, 185, 129, 0.65)' : 'rgba(59, 130, 246, 0.65)');
+        }
+      });
+
+      barChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: reportActiveFlow === 'income' ? 'Daily Income' : 'Daily Expense',
+            data: dataVals,
+            backgroundColor: bgColors,
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: textColor, font: { size: 10, family: 'Inter' } }
+            },
+            y: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                font: { size: 10, family: 'Inter' },
+                callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${formatRawCurrency(ctx.raw)}`
+              }
+            }
+          }
+        }
+      });
+    } else {
+      // Comparison Mode: Income vs Expense side by side
+      const totalExp = periodTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      const totalInc = periodTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+
+      barChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: ['Total Flow Comparison'],
+          datasets: [
+            {
+              label: 'Total Income',
+              data: [totalInc],
+              backgroundColor: '#10b981',
+              borderRadius: 8
+            },
+            {
+              label: 'Total Expense',
+              data: [totalExp],
+              backgroundColor: '#ef4444',
+              borderRadius: 8
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'Inter' } } },
+            y: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: textColor, font: { family: 'Inter', weight: '600' } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${formatRawCurrency(ctx.raw)}`
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // --- LINE CHART (CUMULATIVE TREND) ---
+  function renderLineChart(periodObj, flowTxs, totalAmt) {
+    const canvas = document.getElementById('spendingLineCanvas');
+    if (!canvas) return;
+
+    if (lineChartInstance) {
+      lineChartInstance.destroy();
+      lineChartInstance = null;
+    }
+
+    if (!window.Chart) return;
+
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.06)';
+
+    const y = reportCurrentDate.getFullYear();
+    const m = reportCurrentDate.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+    const labels = [];
+    const cumulativeVals = [];
+    let runningSum = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      labels.push(day % 3 === 0 || day === 1 || day === daysInMonth ? String(day) : '');
+      const dayTotal = flowTxs.filter(t => t.date === dayStr).reduce((sum, t) => sum + t.amount, 0);
+      runningSum += dayTotal;
+      cumulativeVals.push(runningSum);
+    }
+
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    if (reportActiveFlow === 'income') {
+      gradient.addColorStop(0, 'rgba(16, 185, 129, 0.45)');
+      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.01)');
+    } else {
+      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.45)');
+      gradient.addColorStop(1, 'rgba(59, 130, 246, 0.01)');
+    }
+
+    const lineColor = reportActiveFlow === 'income' ? '#10b981' : '#3b82f6';
+
+    lineChartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Cumulative Flow',
+          data: cumulativeVals,
+          borderColor: lineColor,
+          borderWidth: 3,
+          pointRadius: 2,
+          pointHoverRadius: 6,
+          pointBackgroundColor: lineColor,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: textColor, font: { size: 10, family: 'Inter' } }
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { size: 10, family: 'Inter' },
+              callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` Cumulative: ${formatRawCurrency(ctx.raw)}`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // --- CATEGORIZE COMPARISONS DEEP DIVE (RANKING & COMPARISONS) ---
+  function renderCategoryComparisons(catList, totalAmt) {
+    const container = document.getElementById('categoryComparisonsList');
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (catList.length === 0 || totalAmt <= 0) {
+      container.innerHTML = `<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">No category comparison data recorded for this period.</p>`;
+      return;
+    }
+
+    const highestSpend = catList[0].total || 1;
+
+    catList.forEach((cat, index) => {
+      const pctOfTotal = ((cat.total / totalAmt) * 100).toFixed(1);
+      const relativeBarPct = Math.max(8, Math.round((cat.total / highestSpend) * 100));
+      const avgPerTx = cat.count > 0 ? (cat.total / cat.count) : 0;
+
+      let rankClass = '';
+      if (index === 0) rankClass = 'gold';
+      else if (index === 1) rankClass = 'silver';
+      else if (index === 2) rankClass = 'bronze';
+
+      const card = document.createElement('div');
+      card.className = 'compare-card';
+      card.innerHTML = `
+        <div class="compare-rank ${rankClass}">#${index + 1}</div>
+        <div class="compare-info">
+          <div class="compare-header">
+            <span class="compare-name">${cat.name}</span>
+            <span class="compare-pct" style="color: ${cat.color};">${pctOfTotal}%</span>
+          </div>
+          <div class="compare-bar-track">
+            <div class="compare-bar-fill" style="width: ${relativeBarPct}%; background: ${cat.color};"></div>
+          </div>
+          <div class="compare-footer">
+            <span class="compare-avg">Avg: ${formatRawCurrency(avgPerTx)} (${cat.count} tx)</span>
+            <strong class="compare-amt">${formatRawCurrency(cat.total)}</strong>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // --- CATEGORY BREAKDOWN LIST (UNDER CHART) ---
+  function renderCategoryBreakdownList(catList, totalAmt) {
+    const listEl = document.getElementById('reportCategoryList');
+    const badgeEl = document.getElementById('reportCatCountBadge');
+    if (!listEl) return;
+
+    if (badgeEl) badgeEl.textContent = `${catList.length} categories`;
+    listEl.innerHTML = '';
+
+    if (catList.length === 0 || totalAmt <= 0) {
+      listEl.innerHTML = `<p style="text-align:center; color: var(--text-muted); font-size: 0.85rem; padding: 14px;">No categories recorded for this period.</p>`;
+      return;
+    }
+
+    catList.forEach(cat => {
+      const pct = ((cat.total / totalAmt) * 100).toFixed(1);
+      const row = document.createElement('div');
+      row.className = 'report-cat-row';
+      row.innerHTML = `
+        <div class="cat-row-main">
+          <div class="cat-row-left">
+            <div class="cat-row-icon" style="background: ${cat.color};">
+              <i data-lucide="${cat.icon}"></i>
+            </div>
+            <div class="cat-row-details">
+              <span class="cat-row-name">${cat.name}</span>
+              <span class="cat-row-count">${cat.count} transaction${cat.count === 1 ? '' : 's'}</span>
+            </div>
+          </div>
+          <div class="cat-row-right">
+            <span class="cat-row-amt">${formatRawCurrency(cat.total)}</span>
+            <span class="cat-row-pct">${pct}%</span>
+          </div>
+        </div>
+        <div class="cat-row-progress-track">
+          <div class="cat-row-progress-fill" style="width: ${pct}%; background: ${cat.color};"></div>
+        </div>
+      `;
+      listEl.appendChild(row);
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // --- SMART FINANCIAL INSIGHTS ---
+  function renderSmartInsights(catList, totalAmt, totalIncome, totalExpense, savingsRate) {
+    const container = document.getElementById('reportInsightsContent');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (catList.length === 0) {
+      container.innerHTML = `<p style="font-size: 0.82rem; color: var(--text-muted);">Record more transactions to unlock AI spending insights and smart money tips.</p>`;
+      return;
+    }
+
+    const insights = [];
+    const topCat = catList[0];
+
+    if (topCat && totalAmt > 0) {
+      const pct = ((topCat.total / totalAmt) * 100).toFixed(1);
+      insights.push({
+        icon: 'pie-chart',
+        text: `<strong>${topCat.name}</strong> is your primary expenditure area, representing <strong>${pct}%</strong> of your total outflow (${formatRawCurrency(topCat.total)}).`
+      });
+    }
+
+    if (totalIncome > 0 && totalExpense > 0) {
+      if (savingsRate >= 40) {
+        insights.push({
+          icon: 'trending-up',
+          text: `Outstanding fiscal discipline! You have sustained a <strong>${savingsRate}%</strong> savings rate during this period.`
+        });
+      } else if (savingsRate < 15) {
+        insights.push({
+          icon: 'alert-triangle',
+          text: `Tight cashflow notice: Outflow is absorbing <strong>${(100 - savingsRate)}%</strong> of recorded earnings. Review discretionary dining & shopping.`
+        });
+      }
+    }
+
+    if (catList.length > 2) {
+      const runnerUp = catList[1];
+      insights.push({
+        icon: 'git-compare',
+        text: `Secondary spending factor: <strong>${runnerUp.name}</strong> accounts for <strong>${formatRawCurrency(runnerUp.total)}</strong> across ${runnerUp.count} transactions.`
+      });
+    }
+
+    insights.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'insight-card';
+      card.innerHTML = `
+        <i data-lucide="${item.icon}" class="insight-icon"></i>
+        <div class="insight-text">${item.text}</div>
+      `;
+      container.appendChild(card);
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function setupMoneyReportEvents() {
+    // Period navigation arrows
+    const prevBtn = document.getElementById('reportPrevPeriodBtn');
+    const nextBtn = document.getElementById('reportNextPeriodBtn');
+
+    prevBtn?.addEventListener('click', () => {
+      if (reportPeriodScope === 'month') {
+        reportCurrentDate = new Date(reportCurrentDate.getFullYear(), reportCurrentDate.getMonth() - 1, 15);
+      } else if (reportPeriodScope === 'week') {
+        reportCurrentDate = new Date(reportCurrentDate.getTime() - (7 * 24 * 60 * 60 * 1000));
+      } else if (reportPeriodScope === 'year') {
+        reportCurrentDate = new Date(reportCurrentDate.getFullYear() - 1, 0, 15);
+      }
+      renderMoneyReport();
+    });
+
+    nextBtn?.addEventListener('click', () => {
+      if (reportPeriodScope === 'month') {
+        reportCurrentDate = new Date(reportCurrentDate.getFullYear(), reportCurrentDate.getMonth() + 1, 15);
+      } else if (reportPeriodScope === 'week') {
+        reportCurrentDate = new Date(reportCurrentDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+      } else if (reportPeriodScope === 'year') {
+        reportCurrentDate = new Date(reportCurrentDate.getFullYear() + 1, 0, 15);
+      }
+      renderMoneyReport();
+    });
+
+    // Scope Segmented Buttons (Month, Week, Year, All)
+    const scopeBtns = document.querySelectorAll('#reportScopeSegmented .report-scope-btn');
+    scopeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        scopeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        reportPeriodScope = btn.getAttribute('data-scope') || 'month';
+        renderMoneyReport();
+      });
+    });
+
+    // Flow Toggle (Expenses vs Income)
+    const flowBtns = document.querySelectorAll('#reportFlowToggle .report-flow-btn');
+    flowBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        flowBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        reportActiveFlow = btn.getAttribute('data-flow') || 'expense';
+        renderMoneyReport();
+      });
+    });
+
+    // Chart Switcher Tabs (Pie, Bar, Line, Compare)
+    const chartTabs = document.querySelectorAll('#reportChartTabs .report-chart-tab');
+    const chartPanels = {
+      pie: document.getElementById('chartPanelPie'),
+      bar: document.getElementById('chartPanelBar'),
+      line: document.getElementById('chartPanelLine'),
+      compare: document.getElementById('chartPanelCompare')
+    };
+
+    chartTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        chartTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const chartType = tab.getAttribute('data-chart');
+        reportActiveChart = chartType;
+
+        Object.keys(chartPanels).forEach(key => {
+          if (chartPanels[key]) {
+            chartPanels[key].classList.toggle('active', key === chartType);
+          }
+        });
+
+        // Trigger chart resize/animation when switching panels
+        if (chartType === 'pie' && pieChartInstance) pieChartInstance.resize();
+        if (chartType === 'bar' && barChartInstance) barChartInstance.resize();
+        if (chartType === 'line' && lineChartInstance) lineChartInstance.resize();
+      });
+    });
+
+    // Bar Mode Toggle (Daily vs In vs Out)
+    const barModeBtns = document.querySelectorAll('#barModeToggle .bar-toggle-btn');
+    barModeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        barModeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        reportBarMode = btn.getAttribute('data-bar-mode') || 'daily';
+        const periodObj = getReportPeriodDateRange();
+        const periodTxs = transactionsData.filter(tx => {
+          const txDate = new Date(tx.date + 'T12:00:00');
+          return txDate >= periodObj.start && txDate <= periodObj.end;
+        });
+        const flowTxs = periodTxs.filter(tx => tx.type === reportActiveFlow);
+        renderBarChart(periodObj, periodTxs, flowTxs);
+      });
+    });
+
+    // Refresh button
+    const refreshBtn = document.getElementById('reportRefreshBtn');
+    refreshBtn?.addEventListener('click', () => {
+      renderMoneyReport();
+    });
+  }
+
   // Initial Boot Render
   applyLanguage("en");
   setupIconSelector('walletIconSelector', 'wallet', (icon) => { selectedWalletIcon = icon; });
+  loadTransactionsState();
+  setupTransactionsTabEvents();
+  setupMoneyReportEvents();
+  renderTransactionsList();
   updateTabNavigation(0);
   renderSubAccountCarousel();
   setupMainScreenGestures();

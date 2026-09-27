@@ -10,7 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css?v=29">
+  <!-- Chart.js CDN for Financial Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -106,9 +108,87 @@
 
         <!-- Tab 1: Transactions -->
         <div class="tab-view" id="tab-view-1">
-          <div class="glass-card">
-            <h2>Transactions</h2>
-            <p>Recent payment logs and spending activity history.</p>
+          <div class="transactions-scroll-container">
+            
+            <!-- Transactions Top Bar -->
+            <div class="tx-header-row">
+              <div class="tx-header-left">
+                <h2 class="tx-header-title">Transactions</h2>
+                <span class="tx-count-badge" id="txCountBadge">0 records</span>
+              </div>
+              <button class="tx-report-shortcut-btn" id="openReportFromTxBtn" title="Open Money Report">
+                <i data-lucide="pie-chart"></i>
+                <span>Money Report</span>
+              </button>
+            </div>
+
+            <!-- Financial Flow Summary Widget -->
+            <div class="tx-summary-card glass-card-widget">
+              <div class="tx-summary-period-title" id="txSummaryPeriodLabel">This Month Overview</div>
+              <div class="tx-summary-grid">
+                <div class="tx-stat-box income">
+                  <div class="tx-stat-icon-wrap"><i data-lucide="arrow-down-left"></i></div>
+                  <div class="tx-stat-data">
+                    <span class="tx-stat-label">Income</span>
+                    <strong class="tx-stat-value" id="txSummaryIncome">+ LKR 0.00</strong>
+                  </div>
+                </div>
+                <div class="tx-stat-box expense">
+                  <div class="tx-stat-icon-wrap"><i data-lucide="arrow-up-right"></i></div>
+                  <div class="tx-stat-data">
+                    <span class="tx-stat-label">Expense</span>
+                    <strong class="tx-stat-value" id="txSummaryExpense">- LKR 0.00</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="tx-net-row">
+                <span class="tx-net-label">Net Balance:</span>
+                <span class="tx-net-value" id="txSummaryNet">LKR 0.00</span>
+              </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="tx-filter-container">
+              <!-- Type Filter Tabs -->
+              <div class="tx-type-filter-group" id="txTypeFilterGroup">
+                <button type="button" class="tx-filter-pill active" data-type="all">All</button>
+                <button type="button" class="tx-filter-pill" data-type="expense">Expense</button>
+                <button type="button" class="tx-filter-pill" data-type="income">Income</button>
+              </div>
+
+              <!-- Search Bar -->
+              <div class="tx-search-bar">
+                <i data-lucide="search" class="tx-search-icon"></i>
+                <input type="text" id="txSearchInput" placeholder="Search by note, category, amount..." autocomplete="off">
+                <button type="button" id="txSearchClearBtn" class="tx-search-clear" style="display:none;"><i data-lucide="x"></i></button>
+              </div>
+
+              <!-- Time Range Filter Pills -->
+              <div class="tx-period-filter-scroll" id="txPeriodFilterGroup">
+                <button type="button" class="tx-period-pill active" data-period="all">All Time</button>
+                <button type="button" class="tx-period-pill" data-period="month">This Month</button>
+                <button type="button" class="tx-period-pill" data-period="week">This Week</button>
+                <button type="button" class="tx-period-pill" data-period="today">Today</button>
+              </div>
+            </div>
+
+            <!-- Grouped Transaction Feed -->
+            <div class="tx-feed-container" id="txFeedContainer">
+              <!-- Dynamically populated by renderTransactionsList() -->
+            </div>
+
+            <!-- Empty State View -->
+            <div class="tx-empty-state" id="txEmptyState" style="display: none;">
+              <div class="tx-empty-icon-wrap">
+                <i data-lucide="receipt"></i>
+              </div>
+              <h3>No Transactions Yet</h3>
+              <p>Record your expenses and incomes to track your spending and see financial reports.</p>
+              <button class="glass-pill-btn" id="txAddFirstBtn" style="margin-top: 14px;">
+                <i data-lucide="plus"></i> Add Transaction
+              </button>
+            </div>
+
           </div>
         </div>
 
@@ -525,14 +605,168 @@
     <!-- REPORT SWIPE MODAL -->
     <div class="full-modal-overlay" id="reportSwipeModal">
       <div class="full-modal-content glass-modal fullscreen-modal-mode" style="width: 100%; height: 100%; max-width: none; border-radius: 0; margin: 0; background: var(--bg-canvas);">
-        <div class="modal-top-bar" style="background: var(--glass-bg);">
+        
+        <!-- Header -->
+        <div class="modal-top-bar" style="background: var(--glass-bg); border-bottom: 1px solid var(--glass-border); padding: 12px 16px;">
           <button class="action-btn-circle" id="closeReportSwipeBtn" style="width: 34px; height: 34px; cursor: pointer;"><i data-lucide="arrow-left"></i></button>
-          <h3 style="flex:1; text-align:left; margin-left:14px; font-size: 1.1rem;">Money Report</h3>
+          <h3 style="flex:1; text-align:left; margin-left:14px; font-size: 1.1rem; font-weight: 700;">Money Report</h3>
+          <button class="action-btn-circle" id="reportRefreshBtn" title="Refresh Report" style="width: 34px; height: 34px;"><i data-lucide="rotate-cw"></i></button>
         </div>
-        <div class="modal-body-scroll" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
-           <i data-lucide="bar-chart-3" style="width: 54px; height: 54px; margin-bottom: 16px; opacity: 0.4; color: var(--accent-blue);"></i>
-           <h4 style="color: var(--text-main); margin-bottom: 8px;">Financial Summary Report</h4>
-        </div>
+
+        <!-- Scrollable Report Body -->
+        <div class="modal-body-scroll" style="padding: 16px 16px 90px 16px;">
+          
+          <!-- Period Selector Card -->
+          <div class="report-period-selector-card glass-card-widget">
+            <div class="report-period-nav">
+              <button class="report-nav-arrow" id="reportPrevPeriodBtn"><i data-lucide="chevron-left"></i></button>
+              <div class="report-current-period" id="reportCurrentPeriodText">March 2026</div>
+              <button class="report-nav-arrow" id="reportNextPeriodBtn"><i data-lucide="chevron-right"></i></button>
+            </div>
+
+            <!-- Scope Segmented Control -->
+            <div class="report-scope-segmented" id="reportScopeSegmented">
+              <button type="button" class="report-scope-btn active" data-scope="month">Month</button>
+              <button type="button" class="report-scope-btn" data-scope="week">Week</button>
+              <button type="button" class="report-scope-btn" data-scope="year">Year</button>
+              <button type="button" class="report-scope-btn" data-scope="all">All</button>
+            </div>
+          </div>
+
+          <!-- Flow Toggle (Expenses vs Income) -->
+          <div class="report-flow-toggle-wrap">
+            <div class="report-flow-toggle" id="reportFlowToggle">
+              <button type="button" class="report-flow-btn active" data-flow="expense">
+                <i data-lucide="trending-down"></i> Expenses
+              </button>
+              <button type="button" class="report-flow-btn" data-flow="income">
+                <i data-lucide="trending-up"></i> Income
+              </button>
+            </div>
+          </div>
+
+          <!-- Key Financial Metrics Cards Grid -->
+          <div class="report-metrics-grid">
+            <div class="report-metric-card expense-metric">
+              <span class="report-metric-title">Total Spending</span>
+              <strong class="report-metric-val" id="reportTotalSpent">LKR 0.00</strong>
+              <span class="report-metric-sub" id="reportTxCount">0 transactions</span>
+            </div>
+            <div class="report-metric-card avg-metric">
+              <span class="report-metric-title">Daily Average</span>
+              <strong class="report-metric-val" id="reportDailyAvg">LKR 0.00</strong>
+              <span class="report-metric-sub" id="reportDaysTracked">Period average</span>
+            </div>
+            <div class="report-metric-card top-cat-metric">
+              <span class="report-metric-title">Top Category</span>
+              <strong class="report-metric-val" id="reportTopCategory">None</strong>
+              <span class="report-metric-sub" id="reportTopCategoryPct">0% of total</span>
+            </div>
+            <div class="report-metric-card net-metric">
+              <span class="report-metric-title">Net Savings Rate</span>
+              <strong class="report-metric-val" id="reportSavingsRate">0%</strong>
+              <span class="report-metric-sub" id="reportNetSavings">LKR 0.00 saved</span>
+            </div>
+          </div>
+
+          <!-- Chart View Switcher Tabs -->
+          <div class="report-chart-tabs" id="reportChartTabs">
+            <button type="button" class="report-chart-tab active" data-chart="pie">
+              <i data-lucide="pie-chart"></i> Pie Chart
+            </button>
+            <button type="button" class="report-chart-tab" data-chart="bar">
+              <i data-lucide="bar-chart-2"></i> Bar Chart
+            </button>
+            <button type="button" class="report-chart-tab" data-chart="line">
+              <i data-lucide="trending-up"></i> Line Chart
+            </button>
+            <button type="button" class="report-chart-tab" data-chart="compare">
+              <i data-lucide="git-compare"></i> Compare
+            </button>
+          </div>
+
+          <!-- Chart Display Surface -->
+          <div class="report-chart-card glass-card-widget">
+            
+            <!-- Pie / Donut Chart Panel -->
+            <div class="chart-panel active" id="chartPanelPie">
+              <div class="chart-header-row">
+                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Category Spending Share</h4>
+                <span class="chart-header-tag" id="pieChartTag">Percentage</span>
+              </div>
+              <div class="chart-canvas-wrapper donut-wrapper">
+                <canvas id="categoryPieCanvas"></canvas>
+                <div class="donut-center-info" id="donutCenterInfo">
+                  <span class="donut-center-label">Total</span>
+                  <span class="donut-center-val" id="donutCenterVal">LKR 0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bar Chart Panel -->
+            <div class="chart-panel" id="chartPanelBar">
+              <div class="chart-header-row">
+                <h4 id="barChartTitle" style="margin: 0; font-size: 0.95rem; font-weight: 700;">Timeline Comparison</h4>
+                <div class="bar-mode-toggle" id="barModeToggle">
+                  <button type="button" class="bar-toggle-btn active" data-bar-mode="daily">Daily</button>
+                  <button type="button" class="bar-toggle-btn" data-bar-mode="vs">In vs Out</button>
+                </div>
+              </div>
+              <div class="chart-canvas-wrapper bar-wrapper">
+                <canvas id="timelineBarCanvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Line Chart Panel -->
+            <div class="chart-panel" id="chartPanelLine">
+              <div class="chart-header-row">
+                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Spending Trajectory & Flow</h4>
+                <span class="chart-header-tag">Cumulative</span>
+              </div>
+              <div class="chart-canvas-wrapper line-wrapper">
+                <canvas id="spendingLineCanvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Categorize Comparisons Panel -->
+            <div class="chart-panel" id="chartPanelCompare">
+              <div class="chart-header-row">
+                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Category Ranking & Comparisons</h4>
+                <span class="chart-header-tag">Highest to Lowest</span>
+              </div>
+              <div class="category-comparisons-list" id="categoryComparisonsList">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+          </div><!-- /report-chart-card -->
+
+          <!-- Category Breakdown List Section (Under Chart) -->
+          <div class="report-section-card glass-card-widget" id="reportCategoriesSection" style="margin-top: 14px;">
+            <div class="section-title-row">
+              <h3 style="font-size: 0.98rem; font-weight: 700; margin: 0;">Category Breakdown</h3>
+              <span class="section-badge" id="reportCatCountBadge">0 categories</span>
+            </div>
+            <div class="report-cat-list" id="reportCategoryList">
+              <!-- Dynamically rendered category rows with progress bars -->
+            </div>
+          </div>
+
+          <!-- Financial Insights & Advice Card -->
+          <div class="report-section-card glass-card-widget" style="margin-top: 14px;">
+            <div class="section-title-row">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="sparkles" style="color: #f59e0b; width: 18px; height: 18px;"></i>
+                <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Smart Financial Insights</h3>
+              </div>
+            </div>
+            <div class="report-insights-content" id="reportInsightsContent">
+              <!-- Dynamically generated AI-like money insights -->
+            </div>
+          </div>
+
+        </div><!-- /modal-body-scroll -->
+
       </div>
     </div> <!-- Close reportSwipeModal -->
 

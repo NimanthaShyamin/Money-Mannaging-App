@@ -1740,6 +1740,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       document.documentElement.removeAttribute('data-theme');
     }
+    const isThemeDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (window.AndroidBridge && window.AndroidBridge.setStatusBarTheme) {
+      window.AndroidBridge.setStatusBarTheme(isThemeDark);
+    }
     if (window.lucide) lucide.createIcons();
   }
 
@@ -1749,6 +1753,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (currentThemeMode === 'system') {
         if (e.matches) document.documentElement.setAttribute('data-theme', 'dark');
         else document.documentElement.removeAttribute('data-theme');
+        if (window.AndroidBridge && window.AndroidBridge.setStatusBarTheme) {
+          window.AndroidBridge.setStatusBarTheme(e.matches);
+        }
       }
     });
   }

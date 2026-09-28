@@ -24,29 +24,49 @@ public class MainActivity extends Activity {
 
     private WebView mWebView;
     private long mLastBackPressTime = 0;
+    private int mStatusBarDp = 54;
+    private int mNavBarDp = 24;
+
+    private void injectSafeInsets() {
+        if (mWebView != null) {
+            mWebView.post(() -> mWebView.evaluateJavascript(
+                    "document.documentElement.style.setProperty('--safe-top', '" + mStatusBarDp + "px');" +
+                    "document.documentElement.style.setProperty('--safe-bottom', '" + mNavBarDp + "px');",
+                    null
+            ));
+        }
+    }
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Configure Edge-to-edge transparent system bars
+        // Configure Edge-to-edge transparent system bars with initial theme awareness
+        int nightModeFlags = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        boolean isNight = (nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             getWindow().setDecorFitsSystemWindows(false);
             WindowInsetsController controller = getWindow().getInsetsController();
             if (controller != null) {
-                controller.setSystemBarsAppearance(
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                );
+                if (isNight) {
+                    controller.setSystemBarsAppearance(0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
+                } else {
+                    controller.setSystemBarsAppearance(
+                            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                    );
+                }
             }
         } else {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-            );
+            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            if (!isNight) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+            getWindow().getDecorView().setSystemUiVisibility(flags);
         }
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
@@ -55,6 +75,38 @@ public class MainActivity extends Activity {
 
         mWebView = findViewById(R.id.webview);
         WebView.setWebContentsDebuggingEnabled(true);
+
+        // Dynamically compute exact notch / cutout, status bar, and navigation bar heights in dp
+        findViewById(R.id.root_container).setOnApplyWindowInsetsListener((v, insets) -> {
+            int topInset = 0;
+            int bottomInset = 0;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets barInsets = insets.getInsets(
+                        android.view.WindowInsets.Type.statusBars() | android.view.WindowInsets.Type.displayCutout()
+                );
+                topInset = barInsets.top;
+
+                android.graphics.Insets navInsets = insets.getInsets(
+                        android.view.WindowInsets.Type.navigationBars() | android.view.WindowInsets.Type.systemGestures()
+                );
+                bottomInset = navInsets.bottom;
+            } else {
+                topInset = insets.getSystemWindowInsetTop();
+                bottomInset = insets.getSystemWindowInsetBottom();
+            }
+
+            float density = getResources().getDisplayMetrics().density;
+            if (density > 0) {
+                if (topInset > 0) {
+                    mStatusBarDp = Math.max(Math.round(topInset / density), 48);
+                }
+                if (bottomInset > 0) {
+                    mNavBarDp = Math.max(Math.round(bottomInset / density), 20);
+                }
+                injectSafeInsets();
+            }
+            return insets;
+        });
 
         // Configure WebView settings for full modern web app support
         WebSettings settings = mWebView.getSettings();
@@ -105,6 +157,12 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     return false;
                 }
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                injectSafeInsets();
             }
         });
 

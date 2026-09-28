@@ -24,6 +24,10 @@
 
   --card-bg: rgba(255, 255, 255, 0.75);
   --toggle-bg: #cbd5e1;
+
+  /* Mobile Safe Area Insets (Defaults for phone camera cutout & navigation bar) */
+  --safe-top: 58px;
+  --safe-bottom: 28px;
 }
 
 /* Dark Theme Overrides */
@@ -86,6 +90,11 @@ html, body {
 }
 
 @media (max-width: 480px) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 54px);
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+  }
+
   .device-frame {
     width: 100vw;
     max-width: 100vw;
@@ -106,18 +115,39 @@ html, body {
   .home-scroll-container,
   .profile-scroll-container,
   .transactions-scroll-container {
-    inset: 6px 0 calc(78px + env(safe-area-inset-bottom, 0px)) 0;
-    padding: 6px 14px;
+    inset: calc(var(--safe-top, 54px) + 22px) 0 calc(90px + var(--safe-bottom, 24px)) 0;
+    padding: 8px 16px;
   }
 
   .tab-view:not(#tab-view-0):not(#tab-view-1):not(#tab-view-3) .glass-card {
     margin: 16px;
-    margin-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    margin-top: calc(var(--safe-top, 54px) + 24px);
+    margin-bottom: calc(92px + var(--safe-bottom, 24px));
   }
 
   .dock-wrapper {
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(16px + var(--safe-bottom, 24px));
   }
+}
+
+/* Status Bar Blend Scrim - Smooth Frosted Glass Transition for Camera Cutout & Status Bar */
+.system-status-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--safe-top, 54px) + 16px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.35) 60%, transparent 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: none;
+  z-index: 85;
+  mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+}
+
+[data-theme="dark"] .system-status-scrim {
+  background: linear-gradient(180deg, rgba(9, 13, 22, 0.88) 0%, rgba(9, 13, 22, 0.45) 60%, transparent 100%);
 }
 
 /* Android Status Bar */
@@ -214,7 +244,7 @@ html, body {
 .home-scroll-container,
 .transactions-scroll-container {
   position: absolute;
-  inset: 12px 0 90px 0;
+  inset: calc(var(--safe-top, 58px) + 20px) 0 calc(90px + var(--safe-bottom, 28px)) 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding: 8px 16px;
@@ -1246,6 +1276,8 @@ html, body {
 .full-modal-overlay {
   position: absolute;
   inset: 0;
+  padding-top: calc(var(--safe-top, 54px) + 12px);
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -1903,7 +1935,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Floating Bottom Navigation Dock */
 .dock-wrapper {
   position: absolute;
-  bottom: 12px;
+  bottom: calc(16px + var(--safe-bottom, 28px));
   left: 0;
   right: 0;
   z-index: 100;
@@ -2231,7 +2263,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Profile Settings Card & Language Modal Styles */
 .profile-scroll-container {
   position: absolute;
-  inset: 12px 0 90px 0;
+  inset: calc(var(--safe-top, 58px) + 20px) 0 calc(90px + var(--safe-bottom, 28px)) 0;
   padding: 16px;
   box-sizing: border-box;
   overflow-y: auto;

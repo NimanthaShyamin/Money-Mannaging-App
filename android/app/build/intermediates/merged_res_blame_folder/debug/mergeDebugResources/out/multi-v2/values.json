@@ -1,0 +1,62 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.nimanthashyamin.moneymanager.app-mergeDebugResources-1:/values/values.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\RaMoVEd\\my\\Github\\Money-Mannaging-App\\android\\app\\src\\main\\res\\values\\strings.xml",
+                    "from": {
+                        "startLines": "1",
+                        "startColumns": "4",
+                        "startOffsets": "16",
+                        "endColumns": "50",
+                        "endOffsets": "62"
+                    },
+                    "to": {
+                        "startLines": "7",
+                        "startColumns": "4",
+                        "startOffsets": "281",
+                        "endColumns": "50",
+                        "endOffsets": "327"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\RaMoVEd\\my\\Github\\Money-Mannaging-App\\android\\app\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "5,2,3,4,6",
+                        "startColumns": "4,4,4,4,4",
+                        "startOffsets": "197,55,103,152,239",
+                        "endColumns": "41,47,48,44,41",
+                        "endOffsets": "234,98,147,192,276"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6",
+                        "startColumns": "4,4,4,4,4",
+                        "startOffsets": "55,97,145,194,239",
+                        "endColumns": "41,47,48,44,41",
+                        "endOffsets": "92,140,189,234,276"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\RaMoVEd\\my\\Github\\Money-Mannaging-App\\android\\app\\src\\main\\res\\values\\themes.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "7",
+                        "endColumns": "12",
+                        "endOffsets": "460"
+                    },
+                    "to": {
+                        "startLines": "8",
+                        "startColumns": "4",
+                        "startOffsets": "332",
+                        "endLines": "13",
+                        "endColumns": "12",
+                        "endOffsets": "737"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,17 @@
+com.nimanthashyamin.moneymanager:xml/data_extraction_rules = 0x7f080001
+com.nimanthashyamin.moneymanager:xml/backup_rules = 0x7f080000
+com.nimanthashyamin.moneymanager:style/Theme.MoneyManager = 0x7f070000
+com.nimanthashyamin.moneymanager:id/webview = 0x7f030001
+com.nimanthashyamin.moneymanager:drawable/ic_launcher_foreground = 0x7f020002
+com.nimanthashyamin.moneymanager:color/white = 0x7f010004
+com.nimanthashyamin.moneymanager:layout/activity_main = 0x7f040000
+com.nimanthashyamin.moneymanager:id/root_container = 0x7f030000
+com.nimanthashyamin.moneymanager:color/black = 0x7f010000
+com.nimanthashyamin.moneymanager:color/brand_bg_dark = 0x7f010001
+com.nimanthashyamin.moneymanager:color/brand_blue = 0x7f010003
+com.nimanthashyamin.moneymanager:string/app_name = 0x7f060000
+com.nimanthashyamin.moneymanager:mipmap/ic_launcher_round = 0x7f050001
+com.nimanthashyamin.moneymanager:mipmap/ic_launcher = 0x7f050000
+com.nimanthashyamin.moneymanager:drawable/ic_launcher_background = 0x7f020001
+com.nimanthashyamin.moneymanager:color/brand_bg_light = 0x7f010002
+com.nimanthashyamin.moneymanager:drawable/$ic_launcher_foreground__0 = 0x7f020000
